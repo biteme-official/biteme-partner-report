@@ -125,8 +125,8 @@ export default function BuyerAnalysis({ summary, monthly }: Props) {
             <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} />
             <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} />
             <Tooltip
-              formatter={(v: number, name: string) => [
-                v.toLocaleString("ko-KR") + "명",
+              formatter={(v, name) => [
+                Number(v).toLocaleString("ko-KR") + "명",
                 name === "new" ? "신규" : "재구매",
               ]}
             />
