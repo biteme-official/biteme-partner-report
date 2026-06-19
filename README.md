@@ -9,12 +9,13 @@
 ## 개발 워크플로우
 
 로컬에서는 DB 접속이 안 되므로, **Vercel Preview 배포**로 실데이터를 확인합니다.
+`master` 직접 푸시는 하지 말고, 반드시 **브랜치 → PR → 리뷰 → 머지** 순서로 진행합니다.
 
 ```
-코드 수정 → 브랜치 푸시 → PR 생성 → Vercel Preview URL로 확인 → 머지 → Production 자동 반영
+브랜치 생성 → 코드 수정 → 푸시 → PR 생성 → Preview URL로 확인 → 리뷰 요청 → 승인 후 머지 → Production 반영
 ```
 
-### 1. 클론 & 설치
+### 1. 최초 1회: 클론 & 설치
 
 ```bash
 git clone https://github.com/biteme-official/biteme-partner-report.git
@@ -22,30 +23,50 @@ cd biteme-partner-report
 npm install
 ```
 
-### 2. 로컬 개발 서버
+### 2. 작업 시작: 브랜치 생성
+
+```bash
+git checkout master
+git pull origin master
+git checkout -b feature/작업내용
+```
+
+브랜치 이름 예시: `feature/add-category-chart`, `fix/product-table-sort`
+
+### 3. 로컬 개발
 
 ```bash
 npm run dev
 ```
 
-UI/레이아웃 작업은 로컬에서 가능합니다. 단, API 호출은 실패하므로 데이터는 보이지 않습니다.
+UI/레이아웃 작업은 로컬에서 확인 가능합니다. 단, DB 연결이 안 되므로 데이터는 보이지 않습니다.
 
-### 3. 실데이터 확인 (Preview 배포)
+### 4. 커밋 & 푸시
 
 ```bash
-git checkout -b feature/내-작업
-# 코드 수정
 git add .
-git commit -m "변경 내용"
-git push origin feature/내-작업
+git commit -m "변경 내용 요약"
+git push origin feature/작업내용
 ```
 
-GitHub에서 PR을 생성하면 Vercel이 자동으로 Preview URL을 만들어줍니다.
-PR 페이지 하단 Vercel bot 댓글에서 URL을 확인하세요.
+### 5. PR 생성 & 실데이터 확인
 
-### 4. 머지 → 프로덕션 배포
+GitHub에서 PR을 생성하면 Vercel이 자동으로 **Preview URL**을 만들어줍니다.
+PR 페이지 하단 Vercel bot 댓글에서 Preview URL을 클릭하면 실데이터로 확인 가능합니다.
 
-PR이 `master`에 머지되면 https://biteme-partner-report.vercel.app 에 자동 반영됩니다.
+- PR 제목: 변경 내용 요약
+- PR 본문: 어떤 섹션을 추가/수정했는지 간단히 기재
+- Reviewer: @bmahsang 지정
+
+### 6. 머지 → 프로덕션 배포
+
+리뷰어가 PR을 승인하고 머지하면 https://biteme-partner-report.vercel.app 에 자동 반영됩니다.
+
+### 주의사항
+
+- `master`에 직접 push 금지 — 반드시 PR로 진행
+- `.env.local` 파일은 커밋하지 마세요 (DB 비밀번호 포함)
+- 새 패키지 설치 시 `package.json` 변경사항도 함께 커밋
 
 ---
 
