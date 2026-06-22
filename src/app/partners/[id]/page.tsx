@@ -60,7 +60,7 @@ export default function PartnerDetailPage({
 
   if (loading) {
     return (
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-[224.64rem] mx-auto px-4 py-8">
         <div className="flex items-center justify-center py-20">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
         </div>
@@ -70,7 +70,7 @@ export default function PartnerDetailPage({
 
   if (!data?.detail) {
     return (
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-[224.64rem] mx-auto px-4 py-8">
         <p className="text-center text-gray-400 py-20">
           파트너사를 찾을 수 없습니다
         </p>
@@ -84,7 +84,7 @@ export default function PartnerDetailPage({
   const totalBuyers = sales.reduce((s, d) => s + Number(d.buyer_count), 0);
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8">
+    <main className="max-w-[224.64rem] mx-auto px-4 py-8">
       <div className="flex items-center gap-3 mb-6 no-print">
         <Link
           href="/"
