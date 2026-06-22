@@ -127,7 +127,7 @@ export default function BuyerAnalysis({ summary, monthly }: Props) {
             <Tooltip
               formatter={(v, name) => [
                 Number(v).toLocaleString("ko-KR") + "명",
-                name === "new" ? "신규" : "재구매",
+                name,
               ]}
             />
             <Bar
