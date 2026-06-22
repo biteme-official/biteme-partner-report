@@ -43,10 +43,15 @@ export default function ProductMix({ products }: Props) {
                   className="border-b border-gray-100 hover:bg-gray-50"
                 >
                   <td className="py-2.5 text-gray-400">{i + 1}</td>
-                  <td className="py-2.5 text-gray-900 max-w-[648px] truncate">
+                  <td className="py-2.5 text-gray-900 whitespace-nowrap">
                     {p.product_nm}
                   </td>
-                  <td className="py-2.5 text-gray-500">{p.brand_nm}</td>
+                  <td className="py-2.5 text-gray-500 whitespace-nowrap">
+                    <span className="block">{p.brand_nm ?? p.brand_cd}</span>
+                    {p.brand_nm && (
+                      <span className="block text-gray-400 text-xs">{p.brand_cd}</span>
+                    )}
+                  </td>
                   <td className="py-2.5 text-right font-medium">
                     {formatCurrency(Number(p.total_sales))}
                   </td>

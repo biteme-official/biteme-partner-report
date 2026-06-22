@@ -86,7 +86,8 @@ export function partnerProductsSQL(partnerId: string, start: Date, end: Date): s
     SELECT
       op.product_cd,
       MAX(op.product_nm) AS product_nm,
-      IFNULL(MAX(c2.code_nm2), MAX(p.brand_cd)) AS brand_nm,
+      MAX(p.brand_cd) AS brand_cd,
+      MAX(c2.code_nm2) AS brand_nm,
       SUM(op.qty) AS total_qty,
       COUNT(DISTINCT op.ocode) AS order_count,
       ROUND(SUM(op.total_price)) AS total_sales

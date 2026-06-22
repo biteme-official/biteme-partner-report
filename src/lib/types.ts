@@ -27,7 +27,8 @@ export interface DailySales {
 export interface ProductSales {
   product_cd: string;
   product_nm: string;
-  brand_nm: string;
+  brand_cd: string;
+  brand_nm: string | null;
   total_qty: number;
   order_count: number;
   total_sales: number;
