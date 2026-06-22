@@ -102,12 +102,12 @@ export default function InsightSection({ monthly, growth, returnRate }: Props) {
             {growth.map((g) => (
               <div
                 key={g.product_cd}
-                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                className="flex items-start justify-between gap-6 py-2 border-b border-gray-100 last:border-0"
               >
-                <span className="text-sm text-gray-900 truncate max-w-[300px]">
+                <span className="text-sm text-gray-900 break-keep">
                   {g.product_nm}
                 </span>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-shrink-0">
                   <span className="text-sm text-gray-500">
                     {formatCurrency(Number(g.curr_sales))}
                   </span>
