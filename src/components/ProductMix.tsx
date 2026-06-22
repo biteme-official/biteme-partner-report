@@ -23,13 +23,13 @@ export default function ProductMix({ products }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-gray-500">
-              <th className="pb-3 font-medium">#</th>
+              <th className="pb-3 font-medium pr-4">#</th>
               <th className="pb-3 font-medium">상품명</th>
-              <th className="pb-3 font-medium">브랜드</th>
-              <th className="pb-3 font-medium text-right">매출</th>
-              <th className="pb-3 font-medium text-right">비중</th>
-              <th className="pb-3 font-medium text-right">수량</th>
-              <th className="pb-3 font-medium text-right">주문</th>
+              <th className="pb-3 font-medium pl-6">브랜드</th>
+              <th className="pb-3 font-medium text-right pl-10">매출</th>
+              <th className="pb-3 font-medium text-right pl-10">비중</th>
+              <th className="pb-3 font-medium text-right pl-10">수량</th>
+              <th className="pb-3 font-medium text-right pl-10">주문</th>
             </tr>
           </thead>
           <tbody>
@@ -42,24 +42,21 @@ export default function ProductMix({ products }: Props) {
                   key={p.product_cd}
                   className="border-b border-gray-100 hover:bg-gray-50"
                 >
-                  <td className="py-2.5 text-gray-400">{i + 1}</td>
+                  <td className="py-2.5 text-gray-400 pr-4">{i + 1}</td>
                   <td className="py-2.5 text-gray-900 whitespace-nowrap">
                     {p.product_nm}
                   </td>
-                  <td className="py-2.5 text-gray-500 whitespace-nowrap">
-                    <span className="block">{p.brand_nm ?? p.brand_cd}</span>
-                    {p.brand_nm && (
-                      <span className="block text-gray-400 text-xs">{p.brand_cd}</span>
-                    )}
+                  <td className="py-2.5 text-gray-500 whitespace-nowrap pl-6">
+                    {p.brand_nm}
                   </td>
-                  <td className="py-2.5 text-right font-medium">
+                  <td className="py-2.5 text-right font-medium pl-10">
                     {formatCurrency(Number(p.total_sales))}
                   </td>
-                  <td className="py-2.5 text-right text-gray-500">{share}%</td>
-                  <td className="py-2.5 text-right text-gray-500">
+                  <td className="py-2.5 text-right text-gray-500 pl-10">{share}%</td>
+                  <td className="py-2.5 text-right text-gray-500 pl-10">
                     {Number(p.total_qty).toLocaleString("ko-KR")}
                   </td>
-                  <td className="py-2.5 text-right text-gray-500">
+                  <td className="py-2.5 text-right text-gray-500 pl-10">
                     {Number(p.order_count).toLocaleString("ko-KR")}
                   </td>
                 </tr>
