@@ -7,13 +7,8 @@ export interface DateRange {
   end: Date;
 }
 
-export type CompareKey =
-  | "preset"
-  | "off"
-  | "prevDay"
-  | "prevWeek"
-  | "prevMonth"
-  | "custom";
+// "preset"은 PeriodFilter 내부에서만 처리됨 — 부모에는 항상 구체적 key 전달
+export type CompareKey = "off" | "prevDay" | "prevWeek" | "prevMonth" | "custom";
 
 export type PresetKey = "today" | "thisWeek" | "thisMonth" | "custom";
 
@@ -23,6 +18,8 @@ interface Props {
 }
 
 type SpecificCompareKey = "prevDay" | "prevWeek" | "prevMonth";
+// 버튼에서만 사용하는 내부 key (프리셋 포함)
+type BtnCompareKey = CompareKey | "preset";
 
 const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
   { key: "today", label: "오늘" },
@@ -30,7 +27,7 @@ const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
   { key: "thisMonth", label: "이번달" },
 ];
 
-const COMPARE_OPTIONS: { key: CompareKey; label: string }[] = [
+const COMPARE_OPTIONS: { key: BtnCompareKey; label: string }[] = [
   { key: "preset", label: "프리셋" },
   { key: "off", label: "끄기" },
   { key: "prevDay", label: "어제" },
@@ -98,21 +95,7 @@ function autoCompareKey(presetKey: PresetKey): SpecificCompareKey {
   switch (presetKey) {
     case "thisWeek":  return "prevWeek";
     case "thisMonth": return "prevMonth";
-    default:          return "prevDay"; // 오늘 → 어제, 기간설정 → 전날
-  }
-}
-
-function resolveCompare(
-  compareKey: CompareKey,
-  period: DateRange,
-  presetKey: PresetKey,
-  customRange: DateRange | null
-): DateRange | null {
-  switch (compareKey) {
-    case "off":    return null;
-    case "custom": return customRange;
-    case "preset": return getCompareRange(period, autoCompareKey(presetKey));
-    default:       return getCompareRange(period, compareKey as SpecificCompareKey);
+    default:          return "prevDay";
   }
 }
 
@@ -176,7 +159,10 @@ function DatePickerDropdown({
 
 export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props) {
   const [activePreset, setActivePreset] = useState<PresetKey>("today");
-  const [activeCompare, setActiveCompare] = useState<CompareKey>("preset");
+  // isPreset: 프리셋 자동 선택 모드. 기간 버튼 클릭 시 비교 버튼 자동 전환
+  const [isPreset, setIsPreset] = useState(true);
+  // activeCompare: 현재 선택된 비교 key. "preset"은 가지지 않음 — isPreset이 모드 역할
+  const [activeCompare, setActiveCompare] = useState<CompareKey>("prevDay");
   const [period, setPeriod] = useState<DateRange>(() => getPresetRange("today"));
   const [customCompareRange, setCustomCompareRange] = useState<DateRange | null>(null);
 
@@ -214,11 +200,23 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
   function applyPeriod(range: DateRange, preset: PresetKey) {
     setPeriod(range);
     onPeriodChange(range, preset);
-    const cRange = resolveCompare(activeCompare, range, preset, customCompareRange);
-    // preset 모드일 때 구체적인 key를 부모에 전달해 레이블/useEffect dep이 올바르게 반영되도록 함
-    const outKey: CompareKey =
-      activeCompare === "preset" ? autoCompareKey(preset) : activeCompare;
-    onCompareChange(cRange, outKey);
+
+    if (isPreset) {
+      // 프리셋 모드: 기간에 맞는 비교 key 자동 선택 + 버튼 하이라이트 전환
+      const specificKey = autoCompareKey(preset);
+      setActiveCompare(specificKey);
+      onCompareChange(getCompareRange(range, specificKey), specificKey);
+    } else if (activeCompare === "off") {
+      onCompareChange(null, "off");
+    } else if (activeCompare === "custom") {
+      onCompareChange(customCompareRange, "custom");
+    } else {
+      // 수동 선택 — 새 기간에 맞춰 비교 범위 재계산
+      onCompareChange(
+        getCompareRange(range, activeCompare as SpecificCompareKey),
+        activeCompare
+      );
+    }
   }
 
   function handlePreset(key: PresetKey) {
@@ -242,19 +240,35 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
     applyPeriod(range, "custom");
   }
 
-  function handleCompare(key: CompareKey) {
-    setActiveCompare(key);
+  function handleCompare(key: BtnCompareKey) {
     setShowPeriodPicker(false);
+
+    if (key === "preset") {
+      // 프리셋 모드 활성화: 현재 기간에 맞는 specific key로 즉시 전환
+      setIsPreset(true);
+      const specificKey = autoCompareKey(activePreset);
+      setActiveCompare(specificKey);
+      setShowComparePicker(false);
+      onCompareChange(getCompareRange(period, specificKey), specificKey);
+      return;
+    }
+
+    // 특정 버튼 선택 → 프리셋 모드 해제
+    setIsPreset(false);
+    setActiveCompare(key);
+
     if (key === "custom") {
       setShowComparePicker((v) => !v);
       return;
     }
     setShowComparePicker(false);
-    const cRange = resolveCompare(key, period, activePreset, customCompareRange);
-    // 프리셋 버튼 클릭 시에도 구체적인 key를 부모에 전달
-    const outKey: CompareKey =
-      key === "preset" ? autoCompareKey(activePreset) : key;
-    onCompareChange(cRange, outKey);
+
+    if (key === "off") {
+      onCompareChange(null, "off");
+      return;
+    }
+
+    onCompareChange(getCompareRange(period, key as SpecificCompareKey), key);
   }
 
   function handleApplyComparePicker() {
@@ -264,8 +278,17 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
       end: new Date(compareEnd + "T23:59:59"),
     };
     setCustomCompareRange(range);
+    setIsPreset(false);
+    setActiveCompare("custom");
     setShowComparePicker(false);
     onCompareChange(range, "custom");
+  }
+
+  // 프리셋 모드: "프리셋" + 현재 specific key 버튼 모두 주황 하이라이트 (듀얼 표시)
+  // 수동 모드: 선택된 key만 하이라이트
+  function isBtnActive(key: BtnCompareKey): boolean {
+    if (key === "preset") return isPreset;
+    return activeCompare === key;
   }
 
   return (
@@ -321,7 +344,7 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
               key={c.key}
               onClick={() => handleCompare(c.key)}
               className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                activeCompare === c.key
+                isBtnActive(c.key)
                   ? "bg-orange-500 text-white font-medium shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}
@@ -333,7 +356,7 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
             <button
               onClick={() => handleCompare("custom")}
               className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                activeCompare === "custom"
+                isBtnActive("custom")
                   ? "bg-orange-500 text-white font-medium shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}

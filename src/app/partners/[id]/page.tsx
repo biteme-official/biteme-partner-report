@@ -40,7 +40,6 @@ interface InsightData {
 }
 
 const COMPARE_LABELS: Record<CompareKey, string> = {
-  preset: "프리셋",
   off: "",
   prevDay: "어제",
   prevWeek: "전주",
