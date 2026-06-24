@@ -30,14 +30,19 @@ export async function GET(
     start.setDate(start.getDate() - 180);
   }
 
+  // 신규/재구매 분석은 기간 필터와 무관하게 항상 최근 180일 고정
+  const buyerEnd = new Date();
+  const buyerStart = new Date();
+  buyerStart.setDate(buyerStart.getDate() - 180);
+
   try {
     const [monthly, weekly, growth, returnRate, buyerType, buyerMonthly] = await Promise.all([
       query<MonthlySales>(partnerMonthlySalesSQL(id, 12)),
       query<WeeklySales>(partnerWeeklySalesSQL(id, 12)),
       query<GrowthProduct>(partnerTopGrowthProductsSQL(id)),
       query<ReturnRate>(partnerReturnRateSQL(id, start, end)),
-      query<BuyerTypeSummary>(partnerBuyerTypeSQL(id, start, end)),
-      query<BuyerMonthly>(partnerBuyerMonthlySQL(id, start, end)),
+      query<BuyerTypeSummary>(partnerBuyerTypeSQL(id, buyerStart, buyerEnd)),
+      query<BuyerMonthly>(partnerBuyerMonthlySQL(id, buyerStart, buyerEnd)),
     ]);
 
     return NextResponse.json({
