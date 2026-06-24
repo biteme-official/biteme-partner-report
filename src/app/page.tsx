@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import PartnerCard from "@/components/PartnerCard";
 import type { PartnerSummary } from "@/lib/types";
 
+const PAGE_SIZE = 30;
+
 export default function PartnersPage() {
   const [partners, setPartners] = useState<PartnerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [days, setDays] = useState(30);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     setLoading(true);
@@ -19,9 +22,16 @@ export default function PartnersPage() {
       .finally(() => setLoading(false));
   }, [days]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, days]);
+
   const filtered = partners.filter((p) =>
     p.partner_name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
@@ -71,11 +81,45 @@ export default function PartnersPage() {
           {search ? "검색 결과가 없습니다" : "데이터를 불러올 수 없습니다"}
         </p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((p) => (
-            <PartnerCard key={p.partner_id} partner={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginated.map((p) => (
+              <PartnerCard key={p.partner_id} partner={p} />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8 no-print">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              >
+                이전
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                    page === p
+                      ? "bg-blue-500 text-white border-blue-500 font-medium"
+                      : "border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              >
+                다음
+              </button>
+            </div>
+          )}
+        </>
       )}
     </main>
   );
