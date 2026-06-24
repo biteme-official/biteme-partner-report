@@ -66,7 +66,7 @@ export default function PartnerDetailPage({
   const [compareRange, setCompareRange] = useState<DateRange | null>(() =>
     getCompareRange(getPresetRange("today"), "prevDay")
   );
-  const [compareKey, setCompareKey] = useState<CompareKey>("preset");
+  const [compareKey, setCompareKey] = useState<CompareKey>("prevDay");
 
   const [data, setData] = useState<DetailData | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);

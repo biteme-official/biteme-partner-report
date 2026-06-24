@@ -215,7 +215,10 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
     setPeriod(range);
     onPeriodChange(range, preset);
     const cRange = resolveCompare(activeCompare, range, preset, customCompareRange);
-    onCompareChange(cRange, activeCompare);
+    // preset 모드일 때 구체적인 key를 부모에 전달해 레이블/useEffect dep이 올바르게 반영되도록 함
+    const outKey: CompareKey =
+      activeCompare === "preset" ? autoCompareKey(preset) : activeCompare;
+    onCompareChange(cRange, outKey);
   }
 
   function handlePreset(key: PresetKey) {
@@ -248,7 +251,10 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
     }
     setShowComparePicker(false);
     const cRange = resolveCompare(key, period, activePreset, customCompareRange);
-    onCompareChange(cRange, key);
+    // 프리셋 버튼 클릭 시에도 구체적인 key를 부모에 전달
+    const outKey: CompareKey =
+      key === "preset" ? autoCompareKey(activePreset) : key;
+    onCompareChange(cRange, outKey);
   }
 
   function handleApplyComparePicker() {
