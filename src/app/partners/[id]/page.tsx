@@ -8,7 +8,6 @@ import InsightSection from "@/components/InsightSection";
 import BuyerAnalysis from "@/components/BuyerAnalysis";
 import PeriodFilter, {
   getPresetRange,
-  getCompareRange,
   formatDateRange,
 } from "@/components/PeriodFilter";
 import type { DateRange, CompareKey, PresetKey } from "@/components/PeriodFilter";
@@ -40,7 +39,9 @@ interface InsightData {
 }
 
 const COMPARE_LABELS: Record<CompareKey, string> = {
-  none: "",
+  preset: "프리셋",
+  custom: "직접",
+  off: "",
   prevPeriod: "전기간",
   prevWeek: "전주",
   prevMonth: "전월",
@@ -60,7 +61,7 @@ export default function PartnerDetailPage({
 
   const [period, setPeriod] = useState<DateRange>(() => getPresetRange("thisMonth"));
   const [compareRange, setCompareRange] = useState<DateRange | null>(null);
-  const [compareKey, setCompareKey] = useState<CompareKey>("none");
+  const [compareKey, setCompareKey] = useState<CompareKey>("off");
 
   const [data, setData] = useState<DetailData | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
@@ -107,9 +108,7 @@ export default function PartnerDetailPage({
 
   function handlePeriodChange(range: DateRange, _preset: PresetKey) {
     setPeriod(range);
-    if (compareKey !== "none") {
-      setCompareRange(getCompareRange(range, compareKey));
-    }
+    // PeriodFilter가 onCompareChange를 통해 비교 범위를 함께 전달함
   }
 
   function handleCompareChange(range: DateRange | null, key: CompareKey) {
@@ -146,7 +145,7 @@ export default function PartnerDetailPage({
   const compareTotalSales = compareSales?.reduce((s, d) => s + Number(d.total_sales), 0);
   const compareTotalOrders = compareSales?.reduce((s, d) => s + Number(d.order_count), 0);
   const compareTotalBuyers = compareSales?.reduce((s, d) => s + Number(d.buyer_count), 0);
-  const compareLabel = compareKey !== "none" ? COMPARE_LABELS[compareKey] : undefined;
+  const compareLabel = compareKey !== "off" ? COMPARE_LABELS[compareKey] : undefined;
 
   return (
     <main className="max-w-[224.64rem] mx-auto px-4 py-8">

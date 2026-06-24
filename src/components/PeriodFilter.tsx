@@ -7,26 +7,44 @@ export interface DateRange {
   end: Date;
 }
 
-export type CompareKey = "none" | "prevPeriod" | "prevWeek" | "prevMonth" | "prevYear";
-export type PresetKey = "today" | "yesterday" | "thisWeek" | "lastWeek" | "thisMonth" | "lastMonth" | "custom";
+export type CompareKey =
+  | "preset"
+  | "custom"
+  | "off"
+  | "prevPeriod"
+  | "prevWeek"
+  | "prevMonth"
+  | "prevYear";
+
+export type PresetKey =
+  | "today"
+  | "yesterday"
+  | "thisWeek"
+  | "lastWeek"
+  | "thisMonth"
+  | "lastMonth"
+  | "custom";
 
 interface Props {
   onPeriodChange: (range: DateRange, presetKey: PresetKey) => void;
   onCompareChange: (range: DateRange | null, key: CompareKey) => void;
 }
 
-const PRESETS: { key: PresetKey; label: string }[] = [
+type SpecificCompareKey = "prevPeriod" | "prevWeek" | "prevMonth" | "prevYear";
+
+const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
   { key: "today", label: "오늘" },
   { key: "yesterday", label: "어제" },
   { key: "thisWeek", label: "이번주" },
   { key: "lastWeek", label: "지난주" },
   { key: "thisMonth", label: "이번달" },
   { key: "lastMonth", label: "지난달" },
-  { key: "custom", label: "기간 설정" },
 ];
 
-const COMPARES: { key: CompareKey; label: string }[] = [
-  { key: "none", label: "비교 안함" },
+const COMPARE_OPTIONS: { key: CompareKey; label: string }[] = [
+  { key: "preset", label: "프리셋" },
+  { key: "custom", label: "직접" },
+  { key: "off", label: "끄기" },
   { key: "prevPeriod", label: "전기간" },
   { key: "prevWeek", label: "전주" },
   { key: "prevMonth", label: "전월" },
@@ -84,8 +102,7 @@ export function getPresetRange(key: PresetKey): DateRange {
   }
 }
 
-export function getCompareRange(period: DateRange, key: CompareKey): DateRange | null {
-  if (key === "none") return null;
+export function getCompareRange(period: DateRange, key: SpecificCompareKey): DateRange {
   const diffMs = period.end.getTime() - period.start.getTime();
   switch (key) {
     case "prevPeriod": {
@@ -117,77 +134,181 @@ export function getCompareRange(period: DateRange, key: CompareKey): DateRange |
   }
 }
 
+function autoCompareKey(presetKey: PresetKey): SpecificCompareKey {
+  if (presetKey === "thisWeek" || presetKey === "lastWeek") return "prevWeek";
+  if (presetKey === "thisMonth" || presetKey === "lastMonth") return "prevMonth";
+  return "prevPeriod";
+}
+
+function resolveCompare(
+  compareKey: CompareKey,
+  period: DateRange,
+  presetKey: PresetKey,
+  customRange: DateRange | null
+): DateRange | null {
+  switch (compareKey) {
+    case "off":    return null;
+    case "custom": return customRange;
+    case "preset": return getCompareRange(period, autoCompareKey(presetKey));
+    default:       return getCompareRange(period, compareKey);
+  }
+}
+
 function toInputDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
 export function formatDateRange(range: DateRange): string {
   const fmt = (d: Date) =>
-    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
   return `${fmt(range.start)} ~ ${fmt(range.end)}`;
+}
+
+function DatePickerDropdown({
+  title,
+  startVal,
+  endVal,
+  onStartChange,
+  onEndChange,
+  onApply,
+}: {
+  title: string;
+  startVal: string;
+  endVal: string;
+  onStartChange: (v: string) => void;
+  onEndChange: (v: string) => void;
+  onApply: () => void;
+}) {
+  return (
+    <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-4 z-50 w-56">
+      <p className="text-xs font-medium text-gray-700 mb-3">{title}</p>
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">시작일</label>
+          <input
+            type="date"
+            value={startVal}
+            onChange={(e) => onStartChange(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">종료일</label>
+          <input
+            type="date"
+            value={endVal}
+            onChange={(e) => onEndChange(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+          />
+        </div>
+        <button
+          onClick={onApply}
+          className="w-full bg-orange-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-orange-600 transition-colors"
+        >
+          적용
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props) {
   const [activePreset, setActivePreset] = useState<PresetKey>("thisMonth");
-  const [activeCompare, setActiveCompare] = useState<CompareKey>("none");
-  const [showCustom, setShowCustom] = useState(false);
-  const [customStart, setCustomStart] = useState(toInputDate(new Date()));
-  const [customEnd, setCustomEnd] = useState(toInputDate(new Date()));
+  const [activeCompare, setActiveCompare] = useState<CompareKey>("off");
   const [period, setPeriod] = useState<DateRange>(() => getPresetRange("thisMonth"));
-  const customRef = useRef<HTMLDivElement>(null);
+  const [customCompareRange, setCustomCompareRange] = useState<DateRange | null>(null);
+
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [showComparePicker, setShowComparePicker] = useState(false);
+
+  const today = toInputDate(new Date());
+  const [periodStart, setPeriodStart] = useState(today);
+  const [periodEnd, setPeriodEnd] = useState(today);
+  const [compareStart, setCompareStart] = useState(today);
+  const [compareEnd, setCompareEnd] = useState(today);
+
+  const periodPickerRef = useRef<HTMLDivElement>(null);
+  const comparePickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (customRef.current && !customRef.current.contains(e.target as Node)) {
-        setShowCustom(false);
+      if (
+        periodPickerRef.current &&
+        !periodPickerRef.current.contains(e.target as Node)
+      ) {
+        setShowPeriodPicker(false);
+      }
+      if (
+        comparePickerRef.current &&
+        !comparePickerRef.current.contains(e.target as Node)
+      ) {
+        setShowComparePicker(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  function handlePreset(key: PresetKey) {
-    setActivePreset(key);
-    if (key === "custom") {
-      setShowCustom((v) => !v);
-      return;
-    }
-    setShowCustom(false);
-    const range = getPresetRange(key);
+  function applyPeriod(range: DateRange, preset: PresetKey) {
     setPeriod(range);
-    onPeriodChange(range, key);
-    if (activeCompare !== "none") {
-      onCompareChange(getCompareRange(range, activeCompare), activeCompare);
-    }
+    onPeriodChange(range, preset);
+    const cRange = resolveCompare(activeCompare, range, preset, customCompareRange);
+    onCompareChange(cRange, activeCompare);
   }
 
-  function handleApplyCustom() {
-    if (!customStart || !customEnd) return;
-    const range: DateRange = {
-      start: new Date(customStart + "T00:00:00"),
-      end: new Date(customEnd + "T23:59:59"),
-    };
-    setPeriod(range);
-    setShowCustom(false);
-    onPeriodChange(range, "custom");
-    if (activeCompare !== "none") {
-      onCompareChange(getCompareRange(range, activeCompare), activeCompare);
+  function handlePreset(key: PresetKey) {
+    setActivePreset(key);
+    setShowComparePicker(false);
+    if (key === "custom") {
+      setShowPeriodPicker((v) => !v);
+      return;
     }
+    setShowPeriodPicker(false);
+    applyPeriod(getPresetRange(key), key);
+  }
+
+  function handleApplyPeriodPicker() {
+    if (!periodStart || !periodEnd) return;
+    const range: DateRange = {
+      start: new Date(periodStart + "T00:00:00"),
+      end: new Date(periodEnd + "T23:59:59"),
+    };
+    setShowPeriodPicker(false);
+    applyPeriod(range, "custom");
   }
 
   function handleCompare(key: CompareKey) {
     setActiveCompare(key);
-    onCompareChange(key === "none" ? null : getCompareRange(period, key), key);
+    setShowPeriodPicker(false);
+    if (key === "custom") {
+      setShowComparePicker((v) => !v);
+      return;
+    }
+    setShowComparePicker(false);
+    const cRange = resolveCompare(key, period, activePreset, customCompareRange);
+    onCompareChange(cRange, key);
   }
 
-  const nonCustomPresets = PRESETS.filter((p) => p.key !== "custom");
+  function handleApplyComparePicker() {
+    if (!compareStart || !compareEnd) return;
+    const range: DateRange = {
+      start: new Date(compareStart + "T00:00:00"),
+      end: new Date(compareEnd + "T23:59:59"),
+    };
+    setCustomCompareRange(range);
+    setShowComparePicker(false);
+    onCompareChange(range, "custom");
+  }
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* 기간 필터 */}
+      <div className="flex items-center gap-2">
         <span className="text-xs text-gray-400 font-medium w-6">기간</span>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-          {nonCustomPresets.map((p) => (
+          {PERIOD_PRESETS.map((p) => (
             <button
               key={p.key}
               onClick={() => handlePreset(p.key)}
@@ -200,7 +321,7 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
               {p.label}
             </button>
           ))}
-          <div ref={customRef} className="relative">
+          <div ref={periodPickerRef} className="relative">
             <button
               onClick={() => handlePreset("custom")}
               className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
@@ -211,45 +332,25 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
             >
               기간 설정
             </button>
-            {showCustom && (
-              <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-4 z-50 w-56">
-                <p className="text-xs font-medium text-gray-700 mb-3">기간 직접 설정</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">시작일</label>
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">종료일</label>
-                    <input
-                      type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                    />
-                  </div>
-                  <button
-                    onClick={handleApplyCustom}
-                    className="w-full bg-orange-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-orange-600 transition-colors"
-                  >
-                    적용
-                  </button>
-                </div>
-              </div>
+            {showPeriodPicker && (
+              <DatePickerDropdown
+                title="기간 직접 설정"
+                startVal={periodStart}
+                endVal={periodEnd}
+                onStartChange={setPeriodStart}
+                onEndChange={setPeriodEnd}
+                onApply={handleApplyPeriodPicker}
+              />
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* 비교 옵션 */}
+      <div className="flex items-center gap-2">
         <span className="text-xs text-gray-400 font-medium w-6">비교</span>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-          {COMPARES.map((c) => (
+          {COMPARE_OPTIONS.filter((c) => c.key !== "custom").map((c) => (
             <button
               key={c.key}
               onClick={() => handleCompare(c.key)}
@@ -262,6 +363,28 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
               {c.label}
             </button>
           ))}
+          <div ref={comparePickerRef} className="relative">
+            <button
+              onClick={() => handleCompare("custom")}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                activeCompare === "custom"
+                  ? "bg-orange-500 text-white font-medium shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              직접
+            </button>
+            {showComparePicker && (
+              <DatePickerDropdown
+                title="비교 기간 직접 설정"
+                startVal={compareStart}
+                endVal={compareEnd}
+                onStartChange={setCompareStart}
+                onEndChange={setCompareEnd}
+                onApply={handleApplyComparePicker}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
