@@ -41,12 +41,11 @@ interface InsightData {
 
 const COMPARE_LABELS: Record<CompareKey, string> = {
   preset: "프리셋",
-  custom: "직접",
   off: "",
-  prevPeriod: "전기간",
+  prevDay: "어제",
   prevWeek: "전주",
   prevMonth: "전월",
-  prevYear: "전년동기",
+  custom: "기간 설정",
 };
 
 function toApiDate(d: Date): string {
@@ -65,7 +64,7 @@ export default function PartnerDetailPage({
 
   const [period, setPeriod] = useState<DateRange>(() => getPresetRange("today"));
   const [compareRange, setCompareRange] = useState<DateRange | null>(() =>
-    getCompareRange(getPresetRange("today"), "prevPeriod")
+    getCompareRange(getPresetRange("today"), "prevDay")
   );
   const [compareKey, setCompareKey] = useState<CompareKey>("preset");
 

@@ -9,46 +9,33 @@ export interface DateRange {
 
 export type CompareKey =
   | "preset"
-  | "custom"
   | "off"
-  | "prevPeriod"
+  | "prevDay"
   | "prevWeek"
   | "prevMonth"
-  | "prevYear";
-
-export type PresetKey =
-  | "today"
-  | "yesterday"
-  | "thisWeek"
-  | "lastWeek"
-  | "thisMonth"
-  | "lastMonth"
   | "custom";
+
+export type PresetKey = "today" | "thisWeek" | "thisMonth" | "custom";
 
 interface Props {
   onPeriodChange: (range: DateRange, presetKey: PresetKey) => void;
   onCompareChange: (range: DateRange | null, key: CompareKey) => void;
 }
 
-type SpecificCompareKey = "prevPeriod" | "prevWeek" | "prevMonth" | "prevYear";
+type SpecificCompareKey = "prevDay" | "prevWeek" | "prevMonth";
 
 const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
   { key: "today", label: "오늘" },
-  { key: "yesterday", label: "어제" },
   { key: "thisWeek", label: "이번주" },
-  { key: "lastWeek", label: "지난주" },
   { key: "thisMonth", label: "이번달" },
-  { key: "lastMonth", label: "지난달" },
 ];
 
 const COMPARE_OPTIONS: { key: CompareKey; label: string }[] = [
   { key: "preset", label: "프리셋" },
-  { key: "custom", label: "직접" },
   { key: "off", label: "끄기" },
-  { key: "prevPeriod", label: "전기간" },
+  { key: "prevDay", label: "어제" },
   { key: "prevWeek", label: "전주" },
   { key: "prevMonth", label: "전월" },
-  { key: "prevYear", label: "전년동기" },
 ];
 
 function startOf(d: Date): Date {
@@ -68,34 +55,15 @@ export function getPresetRange(key: PresetKey): DateRange {
   switch (key) {
     case "today":
       return { start: startOf(now), end: endOf(now) };
-    case "yesterday": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 1);
-      return { start: startOf(d), end: endOf(d) };
-    }
     case "thisWeek": {
       const d = new Date(now);
       const day = d.getDay();
       d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
       return { start: startOf(d), end: endOf(now) };
     }
-    case "lastWeek": {
-      const d = new Date(now);
-      const day = d.getDay();
-      const mon = new Date(d);
-      mon.setDate(d.getDate() + (day === 0 ? -6 : 1 - day) - 7);
-      const sun = new Date(mon);
-      sun.setDate(mon.getDate() + 6);
-      return { start: startOf(mon), end: endOf(sun) };
-    }
     case "thisMonth": {
       const d = new Date(now.getFullYear(), now.getMonth(), 1);
       return { start: startOf(d), end: endOf(now) };
-    }
-    case "lastMonth": {
-      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const last = new Date(now.getFullYear(), now.getMonth(), 0);
-      return { start: startOf(first), end: endOf(last) };
     }
     case "custom":
       return { start: startOf(now), end: endOf(now) };
@@ -103,12 +71,11 @@ export function getPresetRange(key: PresetKey): DateRange {
 }
 
 export function getCompareRange(period: DateRange, key: SpecificCompareKey): DateRange {
-  const diffMs = period.end.getTime() - period.start.getTime();
   switch (key) {
-    case "prevPeriod": {
-      const end = new Date(period.start.getTime() - 1);
-      const start = new Date(end.getTime() - diffMs);
-      return { start, end };
+    case "prevDay": {
+      const d = new Date(period.start);
+      d.setDate(d.getDate() - 1);
+      return { start: startOf(d), end: endOf(d) };
     }
     case "prevWeek": {
       const ms = 7 * 24 * 60 * 60 * 1000;
@@ -124,23 +91,14 @@ export function getCompareRange(period: DateRange, key: SpecificCompareKey): Dat
       end.setMonth(end.getMonth() - 1);
       return { start, end };
     }
-    case "prevYear": {
-      const start = new Date(period.start);
-      start.setFullYear(start.getFullYear() - 1);
-      const end = new Date(period.end);
-      end.setFullYear(end.getFullYear() - 1);
-      return { start, end };
-    }
   }
 }
 
 function autoCompareKey(presetKey: PresetKey): SpecificCompareKey {
   switch (presetKey) {
-    case "thisWeek":
-    case "lastWeek":   return "prevWeek";
-    case "thisMonth":
-    case "lastMonth":  return "prevMonth";
-    default:           return "prevPeriod"; // 오늘→어제, 어제→그전날, 기간설정→전기간
+    case "thisWeek":  return "prevWeek";
+    case "thisMonth": return "prevMonth";
+    default:          return "prevDay"; // 오늘 → 어제, 기간설정 → 전날
   }
 }
 
@@ -154,7 +112,7 @@ function resolveCompare(
     case "off":    return null;
     case "custom": return customRange;
     case "preset": return getCompareRange(period, autoCompareKey(presetKey));
-    default:       return getCompareRange(period, compareKey);
+    default:       return getCompareRange(period, compareKey as SpecificCompareKey);
   }
 }
 
@@ -164,9 +122,7 @@ function toInputDate(d: Date): string {
 
 export function formatDateRange(range: DateRange): string {
   const fmt = (d: Date) =>
-    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(
-      d.getDate()
-    ).padStart(2, "0")}`;
+    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
   return `${fmt(range.start)} ~ ${fmt(range.end)}`;
 }
 
@@ -354,7 +310,7 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
       <div className="flex items-center gap-2">
         <span className="text-xs text-gray-400 font-medium w-6">비교</span>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-          {COMPARE_OPTIONS.filter((c) => c.key !== "custom").map((c) => (
+          {COMPARE_OPTIONS.map((c) => (
             <button
               key={c.key}
               onClick={() => handleCompare(c.key)}
@@ -376,7 +332,7 @@ export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props)
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              직접
+              기간 설정
             </button>
             {showComparePicker && (
               <DatePickerDropdown
