@@ -235,8 +235,6 @@ export default function PartnerDetailPage({
                 monthly={insights.monthly}
                 growth={insights.growth}
                 returnRate={insights.returnRate}
-                compareMonthly={compareInsights?.monthly}
-                compareLabel={compareLabel}
               />
             )}
           </div>

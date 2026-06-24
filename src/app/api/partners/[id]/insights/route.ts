@@ -32,7 +32,7 @@ export async function GET(
 
   try {
     const [monthly, weekly, growth, returnRate, buyerType, buyerMonthly] = await Promise.all([
-      query<MonthlySales>(partnerMonthlySalesSQL(id, start, end)),
+      query<MonthlySales>(partnerMonthlySalesSQL(id, 12)),
       query<WeeklySales>(partnerWeeklySalesSQL(id, 12)),
       query<GrowthProduct>(partnerTopGrowthProductsSQL(id)),
       query<ReturnRate>(partnerReturnRateSQL(id, start, end)),

@@ -13,7 +13,7 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-export function partnerMonthlySalesSQL(partnerId: string, start: Date, end: Date): string {
+export function partnerMonthlySalesSQL(partnerId: string, monthsBack = 12): string {
   return `
     SELECT
       DATE_FORMAT(op.reg_date, '%Y-%m') AS month,
@@ -29,7 +29,7 @@ export function partnerMonthlySalesSQL(partnerId: string, start: Date, end: Date
       AND op.product_order_state_cd NOT IN (${STATES})
       AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
       AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
+      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)
     GROUP BY DATE_FORMAT(op.reg_date, '%Y-%m')
     ORDER BY month
   `;
