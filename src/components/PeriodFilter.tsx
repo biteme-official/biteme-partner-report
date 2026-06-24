@@ -215,9 +215,9 @@ function DatePickerDropdown({
 }
 
 export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props) {
-  const [activePreset, setActivePreset] = useState<PresetKey>("thisMonth");
+  const [activePreset, setActivePreset] = useState<PresetKey>("today");
   const [activeCompare, setActiveCompare] = useState<CompareKey>("off");
-  const [period, setPeriod] = useState<DateRange>(() => getPresetRange("thisMonth"));
+  const [period, setPeriod] = useState<DateRange>(() => getPresetRange("today"));
   const [customCompareRange, setCustomCompareRange] = useState<DateRange | null>(null);
 
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);

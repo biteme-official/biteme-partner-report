@@ -49,7 +49,10 @@ const COMPARE_LABELS: Record<CompareKey, string> = {
 };
 
 function toApiDate(d: Date): string {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export default function PartnerDetailPage({
@@ -59,7 +62,7 @@ export default function PartnerDetailPage({
 }) {
   const { id } = use(params);
 
-  const [period, setPeriod] = useState<DateRange>(() => getPresetRange("thisMonth"));
+  const [period, setPeriod] = useState<DateRange>(() => getPresetRange("today"));
   const [compareRange, setCompareRange] = useState<DateRange | null>(null);
   const [compareKey, setCompareKey] = useState<CompareKey>("off");
 
