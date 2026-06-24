@@ -11,11 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { DailySales } from "@/lib/types";
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+import type { DateRange } from "@/components/PeriodFilter";
 
 function formatCurrency(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -29,11 +25,18 @@ function calcDelta(curr: number, prev: number): string | null {
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
 }
 
+// Local-time YYYY-MM-DD key to avoid UTC midnight shift (e.g. "2026-06-22" → KST June 22)
+function localDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 interface Props {
   sales: DailySales[];
   totalSales: number;
   totalOrders: number;
   totalBuyers: number;
+  period: DateRange;
+  compareRange?: DateRange | null;
   compareSales?: DailySales[];
   compareLabel?: string;
   compareTotalSales?: number;
@@ -46,22 +49,51 @@ export default function SalesOverview({
   totalSales,
   totalOrders,
   totalBuyers,
+  period,
+  compareRange,
   compareSales,
   compareLabel,
   compareTotalSales,
   compareTotalOrders,
   compareTotalBuyers,
 }: Props) {
-  const hasCompare = !!compareSales && compareSales.length > 0;
-  const maxLen = Math.max(sales.length, compareSales?.length ?? 0);
+  const hasCompare = !!compareRange;
+  const msPerDay = 24 * 60 * 60 * 1000;
 
-  const chartData = Array.from({ length: maxLen }, (_, i) => ({
-    idx: i,
-    date: sales[i] ? formatDate(sales[i].sale_date) : "",
-    sales: sales[i] ? Number(sales[i].total_sales) : 0,
-    compareDate: compareSales?.[i] ? formatDate(compareSales[i].sale_date) : "",
-    compareSales: compareSales?.[i] ? Number(compareSales[i].total_sales) : 0,
-  }));
+  // Normalize to midnight so day arithmetic is exact
+  const pStart = new Date(period.start);
+  pStart.setHours(0, 0, 0, 0);
+  const pEnd = new Date(period.end);
+  pEnd.setHours(0, 0, 0, 0);
+  const numDays = Math.round((pEnd.getTime() - pStart.getTime()) / msPerDay) + 1;
+
+  // API returns only days with sales; build lookup maps to fill zeros for missing days
+  const salesMap = new Map(
+    sales.map(s => [localDateKey(new Date(s.sale_date)), Number(s.total_sales)])
+  );
+  const compareMap = compareSales?.length
+    ? new Map(compareSales.map(s => [localDateKey(new Date(s.sale_date)), Number(s.total_sales)]))
+    : null;
+
+  const cStart = compareRange
+    ? (() => { const d = new Date(compareRange.start); d.setHours(0, 0, 0, 0); return d; })()
+    : null;
+
+  // One entry per day; compare matched by day OFFSET, not array index
+  const chartData = Array.from({ length: numDays }, (_, i) => {
+    const cur = new Date(pStart);
+    cur.setDate(cur.getDate() + i);
+
+    const cmp = cStart ? new Date(cStart) : null;
+    if (cmp) cmp.setDate(cmp.getDate() + i);
+
+    return {
+      date: `${cur.getMonth() + 1}/${cur.getDate()}`,
+      sales: salesMap.get(localDateKey(cur)) ?? 0,
+      compareDate: cmp ? `${cmp.getMonth() + 1}/${cmp.getDate()}` : "",
+      compareSales: cmp && compareMap ? (compareMap.get(localDateKey(cmp)) ?? 0) : 0,
+    };
+  });
 
   const salesDelta = hasCompare && compareTotalSales !== undefined
     ? calcDelta(totalSales, compareTotalSales)

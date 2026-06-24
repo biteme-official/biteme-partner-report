@@ -212,6 +212,8 @@ export default function PartnerDetailPage({
               totalSales={totalSales}
               totalOrders={totalOrders}
               totalBuyers={totalBuyers}
+              period={period}
+              compareRange={compareRange}
               compareSales={compareSales}
               compareLabel={compareLabel}
               compareTotalSales={compareTotalSales}
