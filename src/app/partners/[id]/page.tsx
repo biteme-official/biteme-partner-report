@@ -6,6 +6,12 @@ import SalesOverview from "@/components/SalesOverview";
 import ProductMix from "@/components/ProductMix";
 import InsightSection from "@/components/InsightSection";
 import BuyerAnalysis from "@/components/BuyerAnalysis";
+import PeriodFilter, {
+  getPresetRange,
+  getCompareRange,
+  formatDateRange,
+} from "@/components/PeriodFilter";
+import type { DateRange, CompareKey, PresetKey } from "@/components/PeriodFilter";
 import type {
   PartnerDetail,
   DailySales,
@@ -33,36 +39,89 @@ interface InsightData {
   buyerMonthly: BuyerMonthly[];
 }
 
+const COMPARE_LABELS: Record<CompareKey, string> = {
+  none: "",
+  prevPeriod: "전기간",
+  prevWeek: "전주",
+  prevMonth: "전월",
+  prevYear: "전년동기",
+};
+
+function toApiDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
 export default function PartnerDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+
+  const [period, setPeriod] = useState<DateRange>(() => getPresetRange("thisMonth"));
+  const [compareRange, setCompareRange] = useState<DateRange | null>(null);
+  const [compareKey, setCompareKey] = useState<CompareKey>("none");
+
   const [data, setData] = useState<DetailData | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
+  const [compareData, setCompareData] = useState<DetailData | null>(null);
+  const [compareInsights, setCompareInsights] = useState<InsightData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [days, setDays] = useState(30);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      fetch(`/api/partners/${id}?days=${days}`).then((r) => r.json()),
-      fetch(`/api/partners/${id}/insights`).then((r) => r.json()),
-    ])
-      .then(([detailData, insightData]) => {
-        setData(detailData);
-        setInsights(insightData);
+
+    const start = toApiDate(period.start);
+    const end = toApiDate(period.end);
+    const baseUrl = `/api/partners/${id}`;
+
+    const fetches: Promise<unknown>[] = [
+      fetch(`${baseUrl}?start=${start}&end=${end}`).then((r) => r.json()),
+      fetch(`${baseUrl}/insights?start=${start}&end=${end}`).then((r) => r.json()),
+    ];
+
+    if (compareRange) {
+      const cs = toApiDate(compareRange.start);
+      const ce = toApiDate(compareRange.end);
+      fetches.push(
+        fetch(`${baseUrl}?start=${cs}&end=${ce}`).then((r) => r.json()),
+        fetch(`${baseUrl}/insights?start=${cs}&end=${ce}`).then((r) => r.json()),
+      );
+    }
+
+    Promise.all(fetches)
+      .then(([detailData, insightData, cDetail, cInsight]) => {
+        setData(detailData as DetailData);
+        setInsights(insightData as InsightData);
+        if (compareRange) {
+          setCompareData(cDetail as DetailData);
+          setCompareInsights(cInsight as InsightData);
+        } else {
+          setCompareData(null);
+          setCompareInsights(null);
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [id, days]);
+  }, [id, period, compareRange]);
+
+  function handlePeriodChange(range: DateRange, _preset: PresetKey) {
+    setPeriod(range);
+    if (compareKey !== "none") {
+      setCompareRange(getCompareRange(range, compareKey));
+    }
+  }
+
+  function handleCompareChange(range: DateRange | null, key: CompareKey) {
+    setCompareKey(key);
+    setCompareRange(range);
+  }
 
   if (loading) {
     return (
       <main className="max-w-[224.64rem] mx-auto px-4 py-8">
         <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
         </div>
       </main>
     );
@@ -83,33 +142,30 @@ export default function PartnerDetailPage({
   const totalOrders = sales.reduce((s, d) => s + Number(d.order_count), 0);
   const totalBuyers = sales.reduce((s, d) => s + Number(d.buyer_count), 0);
 
+  const compareSales = compareData?.sales;
+  const compareTotalSales = compareSales?.reduce((s, d) => s + Number(d.total_sales), 0);
+  const compareTotalOrders = compareSales?.reduce((s, d) => s + Number(d.order_count), 0);
+  const compareTotalBuyers = compareSales?.reduce((s, d) => s + Number(d.buyer_count), 0);
+  const compareLabel = compareKey !== "none" ? COMPARE_LABELS[compareKey] : undefined;
+
   return (
     <main className="max-w-[224.64rem] mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6 no-print">
+      <div className="flex items-start gap-3 mb-6 no-print flex-wrap">
         <Link
           href="/"
-          className="text-blue-500 hover:text-blue-700 text-sm"
+          className="text-blue-500 hover:text-blue-700 text-sm mt-2"
         >
           &larr; 목록
         </Link>
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 ml-auto">
-          {[7, 30, 90].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                days === d
-                  ? "bg-white text-gray-900 shadow-sm font-medium"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {d}일
-            </button>
-          ))}
+        <div className="ml-auto">
+          <PeriodFilter
+            onPeriodChange={handlePeriodChange}
+            onCompareChange={handleCompareChange}
+          />
         </div>
       </div>
 
-      <header className="mb-8">
+      <header className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
           {detail.partner_name}
         </h1>
@@ -121,6 +177,14 @@ export default function PartnerDetailPage({
           <span>
             상품: {detail.active_product_count}/{detail.total_product_count}개 (활성/전체)
           </span>
+          <span className="text-orange-500 font-medium">
+            {formatDateRange(period)}
+          </span>
+          {compareRange && (
+            <span className="text-gray-400">
+              비교: {formatDateRange(compareRange)} ({compareLabel})
+            </span>
+          )}
         </div>
       </header>
 
@@ -149,6 +213,11 @@ export default function PartnerDetailPage({
           totalSales={totalSales}
           totalOrders={totalOrders}
           totalBuyers={totalBuyers}
+          compareSales={compareSales}
+          compareLabel={compareLabel}
+          compareTotalSales={compareTotalSales}
+          compareTotalOrders={compareTotalOrders}
+          compareTotalBuyers={compareTotalBuyers}
         />
 
         <ProductMix products={products} />
@@ -165,6 +234,8 @@ export default function PartnerDetailPage({
             monthly={insights.monthly}
             growth={insights.growth}
             returnRate={insights.returnRate}
+            compareMonthly={compareInsights?.monthly}
+            compareLabel={compareLabel}
           />
         )}
       </div>

@@ -13,7 +13,7 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6): string {
+export function partnerMonthlySalesSQL(partnerId: string, start: Date, end: Date): string {
   return `
     SELECT
       DATE_FORMAT(op.reg_date, '%Y-%m') AS month,
@@ -29,7 +29,7 @@ export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6
       AND op.product_order_state_cd NOT IN (${STATES})
       AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
       AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)
+      AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
     GROUP BY DATE_FORMAT(op.reg_date, '%Y-%m')
     ORDER BY month
   `;
@@ -143,7 +143,7 @@ export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date): 
   `;
 }
 
-export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6): string {
+export function partnerBuyerMonthlySQL(partnerId: string, start: Date, end: Date): string {
   return `
     SELECT
       DATE_FORMAT(op.reg_date, '%Y-%m') AS month,
@@ -178,7 +178,7 @@ export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6
       AND oi.user_id IS NOT NULL
       AND oi.user_id NOT IN (${USERS})
       AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)
+      AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
     GROUP BY month, buyer_type
     ORDER BY month
   `;

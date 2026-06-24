@@ -14,11 +14,20 @@ export async function GET(
 ) {
   const { id } = await params;
   const searchParams = req.nextUrl.searchParams;
+
+  const startParam = searchParams.get("start");
+  const endParam = searchParams.get("end");
   const days = Number(searchParams.get("days") || 30);
 
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - days);
+  let start: Date, end: Date;
+  if (startParam && endParam) {
+    start = new Date(startParam + "T00:00:00");
+    end = new Date(endParam + "T23:59:59");
+  } else {
+    end = new Date();
+    start = new Date();
+    start.setDate(start.getDate() - days);
+  }
 
   try {
     const [detail, sales, products, brands] = await Promise.all([
@@ -40,7 +49,7 @@ export async function GET(
       sales,
       products,
       brands,
-      period: { start, end, days },
+      period: { start, end },
     });
   } catch (e) {
     console.error("Partner detail error:", e);

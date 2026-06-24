@@ -7,6 +7,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 import type { MonthlySales, GrowthProduct, ReturnRate } from "@/lib/types";
@@ -21,13 +22,20 @@ interface Props {
   monthly: MonthlySales[];
   growth: GrowthProduct[];
   returnRate: ReturnRate | null;
+  compareMonthly?: MonthlySales[];
+  compareLabel?: string;
 }
 
-export default function InsightSection({ monthly, growth, returnRate }: Props) {
-  const chartData = monthly.map((m) => ({
-    month: m.month,
-    sales: Number(m.total_sales),
-    orders: Number(m.order_count),
+export default function InsightSection({ monthly, growth, returnRate, compareMonthly, compareLabel }: Props) {
+  const hasCompare = !!compareMonthly && compareMonthly.length > 0;
+  const maxLen = Math.max(monthly.length, compareMonthly?.length ?? 0);
+
+  const chartData = Array.from({ length: maxLen }, (_, i) => ({
+    idx: i,
+    month: monthly[i]?.month ?? "",
+    sales: monthly[i] ? Number(monthly[i].total_sales) : 0,
+    compareMonth: compareMonthly?.[i]?.month ?? "",
+    compareSales: compareMonthly?.[i] ? Number(compareMonthly[i].total_sales) : 0,
   }));
 
   const latestMonth = monthly.length >= 2 ? monthly[monthly.length - 1] : null;
@@ -72,22 +80,53 @@ export default function InsightSection({ monthly, growth, returnRate }: Props) {
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 12, fill: "#9ca3af" }}
+              />
               <YAxis
                 tick={{ fontSize: 12, fill: "#9ca3af" }}
                 tickFormatter={formatCurrency}
               />
               <Tooltip
-                formatter={(v) => Number(v).toLocaleString("ko-KR")}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const item = payload[0]?.payload;
+                  return (
+                    <div className="bg-white border border-gray-200 rounded-lg shadow p-3 text-sm">
+                      {item.month && <p className="font-medium text-gray-700 mb-1">{item.month}</p>}
+                      {payload.map((p, i) => (
+                        <p key={i} style={{ color: p.color }}>
+                          {p.name}: {Number(p.value).toLocaleString("ko-KR")}원
+                        </p>
+                      ))}
+                      {hasCompare && item.compareMonth && (
+                        <p className="text-xs text-gray-400 mt-1">비교: {item.compareMonth}</p>
+                      )}
+                    </div>
+                  );
+                }}
               />
+              {hasCompare && <Legend />}
               <Line
                 type="monotone"
                 dataKey="sales"
-                name="매출"
+                name="현재 기간"
                 stroke="#3b82f6"
                 strokeWidth={2}
                 dot={{ fill: "#3b82f6", r: 4 }}
               />
+              {hasCompare && (
+                <Line
+                  type="monotone"
+                  dataKey="compareSales"
+                  name={compareLabel ?? "비교 기간"}
+                  stroke="#9ca3af"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={{ fill: "#9ca3af", r: 3 }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         )}
