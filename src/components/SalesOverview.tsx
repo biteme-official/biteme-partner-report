@@ -180,10 +180,10 @@ export default function SalesOverview({
               }}
             />
             {hasCompare && <Legend />}
-            <Bar dataKey="sales" name="현재 기간" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             {hasCompare && (
               <Bar dataKey="compareSales" name={compareLabel ?? "비교 기간"} fill="#d1d5db" radius={[4, 4, 0, 0]} />
             )}
+            <Bar dataKey="sales" name="현재 기간" fill="#3b82f6" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}

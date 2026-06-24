@@ -135,9 +135,13 @@ export function getCompareRange(period: DateRange, key: SpecificCompareKey): Dat
 }
 
 function autoCompareKey(presetKey: PresetKey): SpecificCompareKey {
-  if (presetKey === "thisWeek" || presetKey === "lastWeek") return "prevWeek";
-  if (presetKey === "thisMonth" || presetKey === "lastMonth") return "prevMonth";
-  return "prevPeriod";
+  switch (presetKey) {
+    case "thisWeek":
+    case "lastWeek":   return "prevWeek";
+    case "thisMonth":
+    case "lastMonth":  return "prevMonth";
+    default:           return "prevPeriod"; // 오늘→어제, 어제→그전날, 기간설정→전기간
+  }
 }
 
 function resolveCompare(
@@ -216,7 +220,7 @@ function DatePickerDropdown({
 
 export default function PeriodFilter({ onPeriodChange, onCompareChange }: Props) {
   const [activePreset, setActivePreset] = useState<PresetKey>("today");
-  const [activeCompare, setActiveCompare] = useState<CompareKey>("off");
+  const [activeCompare, setActiveCompare] = useState<CompareKey>("preset");
   const [period, setPeriod] = useState<DateRange>(() => getPresetRange("today"));
   const [customCompareRange, setCustomCompareRange] = useState<DateRange | null>(null);
 

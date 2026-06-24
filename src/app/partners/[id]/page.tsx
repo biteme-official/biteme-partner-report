@@ -8,6 +8,7 @@ import InsightSection from "@/components/InsightSection";
 import BuyerAnalysis from "@/components/BuyerAnalysis";
 import PeriodFilter, {
   getPresetRange,
+  getCompareRange,
   formatDateRange,
 } from "@/components/PeriodFilter";
 import type { DateRange, CompareKey, PresetKey } from "@/components/PeriodFilter";
@@ -63,8 +64,10 @@ export default function PartnerDetailPage({
   const { id } = use(params);
 
   const [period, setPeriod] = useState<DateRange>(() => getPresetRange("today"));
-  const [compareRange, setCompareRange] = useState<DateRange | null>(null);
-  const [compareKey, setCompareKey] = useState<CompareKey>("off");
+  const [compareRange, setCompareRange] = useState<DateRange | null>(() =>
+    getCompareRange(getPresetRange("today"), "prevPeriod")
+  );
+  const [compareKey, setCompareKey] = useState<CompareKey>("preset");
 
   const [data, setData] = useState<DetailData | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
