@@ -111,7 +111,6 @@ export default function PartnerDetailPage({
 
   function handlePeriodChange(range: DateRange, _preset: PresetKey) {
     setPeriod(range);
-    // PeriodFilter가 onCompareChange를 통해 비교 범위를 함께 전달함
   }
 
   function handleCompareChange(range: DateRange | null, key: CompareKey) {
@@ -119,27 +118,12 @@ export default function PartnerDetailPage({
     setCompareRange(range);
   }
 
-  if (loading) {
-    return (
-      <main className="max-w-[224.64rem] mx-auto px-4 py-8">
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
-        </div>
-      </main>
-    );
-  }
+  const compareLabel = compareKey !== "off" ? COMPARE_LABELS[compareKey] : undefined;
+  const detail = data?.detail;
 
-  if (!data?.detail) {
-    return (
-      <main className="max-w-[224.64rem] mx-auto px-4 py-8">
-        <p className="text-center text-gray-400 py-20">
-          파트너사를 찾을 수 없습니다
-        </p>
-      </main>
-    );
-  }
-
-  const { detail, sales, products, brands } = data;
+  const sales = data?.sales ?? [];
+  const products = data?.products ?? [];
+  const brands = data?.brands ?? [];
   const totalSales = sales.reduce((s, d) => s + Number(d.total_sales), 0);
   const totalOrders = sales.reduce((s, d) => s + Number(d.order_count), 0);
   const totalBuyers = sales.reduce((s, d) => s + Number(d.buyer_count), 0);
@@ -148,10 +132,10 @@ export default function PartnerDetailPage({
   const compareTotalSales = compareSales?.reduce((s, d) => s + Number(d.total_sales), 0);
   const compareTotalOrders = compareSales?.reduce((s, d) => s + Number(d.order_count), 0);
   const compareTotalBuyers = compareSales?.reduce((s, d) => s + Number(d.buyer_count), 0);
-  const compareLabel = compareKey !== "off" ? COMPARE_LABELS[compareKey] : undefined;
 
   return (
     <main className="max-w-[224.64rem] mx-auto px-4 py-8">
+      {/* PeriodFilter는 항상 렌더링 — 로딩 중에도 언마운트하지 않아야 버튼 state 유지됨 */}
       <div className="flex items-start gap-3 mb-6 no-print flex-wrap">
         <Link
           href="/"
@@ -167,80 +151,95 @@ export default function PartnerDetailPage({
         </div>
       </div>
 
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {detail.partner_name}
-        </h1>
-        <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
-          <span>
-            입점일: {detail.joined_date ? new Date(detail.joined_date).toLocaleDateString("ko-KR") : "-"}
-          </span>
-          <span>브랜드: {detail.brand_count}개</span>
-          <span>
-            상품: {detail.active_product_count}/{detail.total_product_count}개 (활성/전체)
-          </span>
-          <span className="text-orange-500 font-medium">
-            {formatDateRange(period)}
-          </span>
-          {compareRange && (
-            <span className="text-gray-400">
-              비교: {formatDateRange(compareRange)} ({compareLabel})
-            </span>
-          )}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
         </div>
-      </header>
-
-      {brands.length > 0 && (
-        <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
-            취급 브랜드
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {brands.map((b) => (
-              <span
-                key={b.brand_cd}
-                className="bg-gray-100 text-gray-700 text-sm px-3 py-1.5 rounded-full"
-              >
-                {b.brand_nm}{" "}
-                <span className="text-gray-400">({b.active_count})</span>
+      ) : !detail ? (
+        <p className="text-center text-gray-400 py-20">
+          파트너사를 찾을 수 없습니다
+        </p>
+      ) : (
+        <>
+          <header className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {detail.partner_name}
+            </h1>
+            <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+              <span>
+                입점일:{" "}
+                {detail.joined_date
+                  ? new Date(detail.joined_date).toLocaleDateString("ko-KR")
+                  : "-"}
               </span>
-            ))}
+              <span>브랜드: {detail.brand_count}개</span>
+              <span>
+                상품: {detail.active_product_count}/{detail.total_product_count}개 (활성/전체)
+              </span>
+              <span className="text-orange-500 font-medium">
+                {formatDateRange(period)}
+              </span>
+              {compareRange && (
+                <span className="text-gray-400">
+                  비교: {formatDateRange(compareRange)} ({compareLabel})
+                </span>
+              )}
+            </div>
+          </header>
+
+          {brands.length > 0 && (
+            <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                취급 브랜드
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {brands.map((b) => (
+                  <span
+                    key={b.brand_cd}
+                    className="bg-gray-100 text-gray-700 text-sm px-3 py-1.5 rounded-full"
+                  >
+                    {b.brand_nm}{" "}
+                    <span className="text-gray-400">({b.active_count})</span>
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="space-y-6">
+            <SalesOverview
+              sales={sales}
+              totalSales={totalSales}
+              totalOrders={totalOrders}
+              totalBuyers={totalBuyers}
+              compareSales={compareSales}
+              compareLabel={compareLabel}
+              compareTotalSales={compareTotalSales}
+              compareTotalOrders={compareTotalOrders}
+              compareTotalBuyers={compareTotalBuyers}
+            />
+
+            <ProductMix products={products} />
+
+            {insights?.buyerType && insights.buyerType.length > 0 && (
+              <BuyerAnalysis
+                summary={insights.buyerType}
+                monthly={insights.buyerMonthly}
+              />
+            )}
+
+            {insights && (
+              <InsightSection
+                monthly={insights.monthly}
+                growth={insights.growth}
+                returnRate={insights.returnRate}
+                compareMonthly={compareInsights?.monthly}
+                compareLabel={compareLabel}
+              />
+            )}
           </div>
-        </section>
+        </>
       )}
-
-      <div className="space-y-6">
-        <SalesOverview
-          sales={sales}
-          totalSales={totalSales}
-          totalOrders={totalOrders}
-          totalBuyers={totalBuyers}
-          compareSales={compareSales}
-          compareLabel={compareLabel}
-          compareTotalSales={compareTotalSales}
-          compareTotalOrders={compareTotalOrders}
-          compareTotalBuyers={compareTotalBuyers}
-        />
-
-        <ProductMix products={products} />
-
-        {insights?.buyerType && insights.buyerType.length > 0 && (
-          <BuyerAnalysis
-            summary={insights.buyerType}
-            monthly={insights.buyerMonthly}
-          />
-        )}
-
-        {insights && (
-          <InsightSection
-            monthly={insights.monthly}
-            growth={insights.growth}
-            returnRate={insights.returnRate}
-            compareMonthly={compareInsights?.monthly}
-            compareLabel={compareLabel}
-          />
-        )}
-      </div>
     </main>
   );
 }
