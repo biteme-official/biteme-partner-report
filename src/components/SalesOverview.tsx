@@ -23,6 +23,7 @@ function formatCurrency(n: number): string {
 }
 
 function pctChange(curr: number, prev: number): { label: string; positive: boolean } {
+  if (prev === 0 && curr === 0) return { label: "0%", positive: true };
   if (prev === 0) return { label: "+∞%", positive: true };
   const pct = ((curr - prev) / prev) * 100;
   return { label: (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%", positive: pct >= 0 };
