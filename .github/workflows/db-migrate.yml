@@ -1,0 +1,55 @@
+name: DB Migration
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'migrations/**'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for new migrations
+        id: check
+        run: |
+          NEW_FILES=$(git diff --name-only HEAD~1 HEAD -- 'migrations/*.sql' || true)
+          if [ -z "$NEW_FILES" ]; then
+            echo "has_migrations=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_migrations=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check.outputs.has_migrations == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        if: steps.check.outputs.has_migrations == 'true'
+        run: npm ci
+
+      - name: Run migrations
+        if: steps.check.outputs.has_migrations == 'true'
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY_BASE64: ${{ secrets.SSH_KEY_BASE64 }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: node scripts/run-migrations.mjs
+
+      - name: Notify Slack on failure
+        if: failure()
+        run: |
+          curl -X POST "${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"text\":\"❌ DB 마이그레이션 실패: ${{ github.repository }} (${{ github.sha }})\"}"
