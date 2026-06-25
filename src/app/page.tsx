@@ -97,19 +97,27 @@ export default function PartnersPage() {
               >
                 이전
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                    page === p
-                      ? "bg-blue-500 text-white border-blue-500 font-medium"
-                      : "border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+              {(() => {
+                const PAGE_WINDOW = 10;
+                let start = Math.max(1, page - Math.floor(PAGE_WINDOW / 2));
+                let end = Math.min(totalPages, start + PAGE_WINDOW - 1);
+                if (end - start < PAGE_WINDOW - 1) {
+                  start = Math.max(1, end - PAGE_WINDOW + 1);
+                }
+                return Array.from({ length: end - start + 1 }, (_, i) => start + i).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                      page === p
+                        ? "bg-blue-500 text-white border-blue-500 font-medium"
+                        : "border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ));
+              })()}
               <button
                 onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 disabled={page === totalPages}
