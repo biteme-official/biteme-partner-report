@@ -91,7 +91,7 @@ export default function PartnersPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-8 no-print">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 disabled={page === 1}
                 className="px-3 py-1.5 text-sm rounded-md border border-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-colors"
               >
@@ -100,7 +100,7 @@ export default function PartnersPage() {
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <button
                   key={p}
-                  onClick={() => setPage(p)}
+                  onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                     page === p
                       ? "bg-blue-500 text-white border-blue-500 font-medium"
@@ -111,7 +111,7 @@ export default function PartnersPage() {
                 </button>
               ))}
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 disabled={page === totalPages}
                 className="px-3 py-1.5 text-sm rounded-md border border-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-colors"
               >
