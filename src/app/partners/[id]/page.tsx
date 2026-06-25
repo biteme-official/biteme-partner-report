@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import SalesOverview from "@/components/SalesOverview";
 import ProductMix from "@/components/ProductMix";
 import InsightSection from "@/components/InsightSection";
 import BuyerAnalysis from "@/components/BuyerAnalysis";
+import PeriodFilter, { type DateRange } from "@/components/PeriodFilter";
 import type {
   PartnerDetail,
   DailySales,
@@ -33,6 +34,11 @@ interface InsightData {
   buyerMonthly: BuyerMonthly[];
 }
 
+function toApiDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export default function PartnerDetailPage({
   params,
 }: {
@@ -40,23 +46,46 @@ export default function PartnerDetailPage({
 }) {
   const { id } = use(params);
   const [data, setData] = useState<DetailData | null>(null);
+  const [compareData, setCompareData] = useState<Pick<DetailData, "sales"> | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [days, setDays] = useState(30);
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [compareDateRange, setCompareDateRange] = useState<DateRange | null>(null);
+
+  const handleFilterChange = useCallback((main: DateRange, compare: DateRange | null) => {
+    setDateRange(main);
+    setCompareDateRange(compare);
+  }, []);
 
   useEffect(() => {
+    if (!dateRange) return;
     setLoading(true);
+
+    const startStr = toApiDate(dateRange.start);
+    const endStr = toApiDate(dateRange.end);
+    const mainUrl = `/api/partners/${id}?startDate=${startStr}&endDate=${endStr}`;
+
+    const cmpPromise: Promise<DetailData | null> = compareDateRange
+      ? (() => {
+          const cStart = toApiDate(compareDateRange.start);
+          const cEnd = toApiDate(compareDateRange.end);
+          return fetch(`/api/partners/${id}?startDate=${cStart}&endDate=${cEnd}`).then((r) => r.json());
+        })()
+      : Promise.resolve(null);
+
     Promise.all([
-      fetch(`/api/partners/${id}?days=${days}`).then((r) => r.json()),
-      fetch(`/api/partners/${id}/insights`).then((r) => r.json()),
+      fetch(mainUrl).then((r) => r.json()) as Promise<DetailData>,
+      fetch(`/api/partners/${id}/insights`).then((r) => r.json()) as Promise<InsightData>,
+      cmpPromise,
     ])
-      .then(([detailData, insightData]) => {
+      .then(([detailData, insightData, cmpData]) => {
         setData(detailData);
         setInsights(insightData);
+        setCompareData(cmpData ? { sales: cmpData.sales } : null);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [id, days]);
+  }, [id, dateRange, compareDateRange]);
 
   if (loading) {
     return (
@@ -71,9 +100,10 @@ export default function PartnerDetailPage({
   if (!data?.detail) {
     return (
       <main className="max-w-[224.64rem] mx-auto px-4 py-8">
-        <p className="text-center text-gray-400 py-20">
-          파트너사를 찾을 수 없습니다
-        </p>
+        <div className="mb-6 no-print">
+          <PeriodFilter onChange={handleFilterChange} />
+        </div>
+        <p className="text-center text-gray-400 py-20">파트너사를 찾을 수 없습니다</p>
       </main>
     );
   }
@@ -83,39 +113,32 @@ export default function PartnerDetailPage({
   const totalOrders = sales.reduce((s, d) => s + Number(d.order_count), 0);
   const totalBuyers = sales.reduce((s, d) => s + Number(d.buyer_count), 0);
 
+  const compareSales = compareData?.sales ?? [];
+  const compareTotalSales = compareData ? compareSales.reduce((s, d) => s + Number(d.total_sales), 0) : undefined;
+  const compareTotalOrders = compareData ? compareSales.reduce((s, d) => s + Number(d.order_count), 0) : undefined;
+  const compareTotalBuyers = compareData ? compareSales.reduce((s, d) => s + Number(d.buyer_count), 0) : undefined;
+
   return (
     <main className="max-w-[224.64rem] mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6 no-print">
-        <Link
-          href="/"
-          className="text-blue-500 hover:text-blue-700 text-sm"
-        >
+      <div className="flex items-center gap-3 mb-4 no-print">
+        <Link href="/" className="text-blue-500 hover:text-blue-700 text-sm shrink-0">
           &larr; 목록
         </Link>
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 ml-auto">
-          {[7, 30, 90].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                days === d
-                  ? "bg-white text-gray-900 shadow-sm font-medium"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {d}일
-            </button>
-          ))}
-        </div>
+      </div>
+
+      {/* 기간 필터 + 비교 옵션 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6 no-print">
+        <PeriodFilter onChange={handleFilterChange} />
       </div>
 
       <header className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {detail.partner_name}
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900">{detail.partner_name}</h1>
         <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
           <span>
-            입점일: {detail.joined_date ? new Date(detail.joined_date).toLocaleDateString("ko-KR") : "-"}
+            입점일:{" "}
+            {detail.joined_date
+              ? new Date(detail.joined_date).toLocaleDateString("ko-KR")
+              : "-"}
           </span>
           <span>브랜드: {detail.brand_count}개</span>
           <span>
@@ -126,9 +149,7 @@ export default function PartnerDetailPage({
 
       {brands.length > 0 && (
         <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
-            취급 브랜드
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">취급 브랜드</h2>
           <div className="flex flex-wrap gap-2">
             {brands.map((b) => (
               <span
@@ -149,6 +170,9 @@ export default function PartnerDetailPage({
           totalSales={totalSales}
           totalOrders={totalOrders}
           totalBuyers={totalBuyers}
+          compareTotalSales={compareTotalSales}
+          compareTotalOrders={compareTotalOrders}
+          compareTotalBuyers={compareTotalBuyers}
         />
 
         <ProductMix products={products} />
