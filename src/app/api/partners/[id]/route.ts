@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { queryBatch } from "@/lib/db";
 import {
   partnerDetailSQL,
   partnerSalesSQL,
@@ -30,11 +30,11 @@ export async function GET(
   }
 
   try {
-    const [detail, sales, products, brands] = await Promise.all([
-      query<PartnerDetail>(partnerDetailSQL(id, start, end)),
-      query<DailySales>(partnerSalesSQL(id, start, end)),
-      query<ProductSales>(partnerProductsSQL(id, start, end)),
-      query<BrandInfo>(partnerBrandsSQL(id)),
+    const [detail, sales, products, brands] = await queryBatch<[PartnerDetail[], DailySales[], ProductSales[], BrandInfo[]]>([
+      partnerDetailSQL(id, start, end),
+      partnerSalesSQL(id, start, end),
+      partnerProductsSQL(id, start, end),
+      partnerBrandsSQL(id),
     ]);
 
     if (!detail.length) {
