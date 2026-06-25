@@ -48,7 +48,7 @@ export default function PartnerDetailPage({
   const [data, setData] = useState<DetailData | null>(null);
   const [compareData, setCompareData] = useState<Pick<DetailData, "sales"> | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [compareDateRange, setCompareDateRange] = useState<DateRange | null>(null);
 
@@ -85,7 +85,7 @@ export default function PartnerDetailPage({
 
     Promise.all([
       safeFetch(mainUrl) as Promise<DetailData>,
-      safeFetch(`/api/partners/${id}/insights`) as Promise<InsightData>,
+      safeFetch(`/api/partners/${id}/insights`).catch(() => null) as Promise<InsightData | null>,
       cmpPromise,
     ])
       .then(([detailData, insightData, cmpData]) => {
@@ -184,6 +184,7 @@ export default function PartnerDetailPage({
               totalSales={totalSales}
               totalOrders={totalOrders}
               totalBuyers={totalBuyers}
+              compareSales={compareSales.length > 0 ? compareSales : undefined}
               compareTotalSales={compareTotalSales}
               compareTotalOrders={compareTotalOrders}
               compareTotalBuyers={compareTotalBuyers}

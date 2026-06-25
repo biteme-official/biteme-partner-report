@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { queryBatch } from "@/lib/db";
 import {
   partnerMonthlySalesSQL,
   partnerWeeklySalesSQL,
@@ -21,13 +21,13 @@ export async function GET(
   start.setDate(start.getDate() - 180);
 
   try {
-    const [monthly, weekly, growth, returnRate, buyerType, buyerMonthly] = await Promise.all([
-      query<MonthlySales>(partnerMonthlySalesSQL(id, 6)),
-      query<WeeklySales>(partnerWeeklySalesSQL(id, 12)),
-      query<GrowthProduct>(partnerTopGrowthProductsSQL(id)),
-      query<ReturnRate>(partnerReturnRateSQL(id, start, end)),
-      query<BuyerTypeSummary>(partnerBuyerTypeSQL(id, start, end)),
-      query<BuyerMonthly>(partnerBuyerMonthlySQL(id, 6)),
+    const [monthly, weekly, growth, returnRate, buyerType, buyerMonthly] = await queryBatch<[MonthlySales[], WeeklySales[], GrowthProduct[], ReturnRate[], BuyerTypeSummary[], BuyerMonthly[]]>([
+      partnerMonthlySalesSQL(id, 6),
+      partnerWeeklySalesSQL(id, 12),
+      partnerTopGrowthProductsSQL(id),
+      partnerReturnRateSQL(id, start, end),
+      partnerBuyerTypeSQL(id, start, end),
+      partnerBuyerMonthlySQL(id, 6),
     ]);
 
     return NextResponse.json({
