@@ -7,6 +7,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 import type { DailySales } from "@/lib/types";
@@ -34,6 +35,7 @@ interface Props {
   totalSales: number;
   totalOrders: number;
   totalBuyers: number;
+  compareSales?: DailySales[];
   compareTotalSales?: number;
   compareTotalOrders?: number;
   compareTotalBuyers?: number;
@@ -44,15 +46,23 @@ export default function SalesOverview({
   totalSales,
   totalOrders,
   totalBuyers,
+  compareSales,
   compareTotalSales,
   compareTotalOrders,
   compareTotalBuyers,
 }: Props) {
-  const chartData = sales.map((s) => ({
-    date: formatDate(s.sale_date),
-    sales: Number(s.total_sales),
-    orders: Number(s.order_count),
-  }));
+  const hasCompare = !!compareSales && compareSales.length > 0;
+  const maxLen = Math.max(sales.length, hasCompare ? compareSales!.length : 0);
+
+  const chartData = Array.from({ length: maxLen }, (_, i) => {
+    const curr = sales[i];
+    const cmp = compareSales?.[i];
+    return {
+      date: curr ? formatDate(curr.sale_date) : (cmp ? formatDate(cmp.sale_date) : `${i + 1}일`),
+      current: curr ? Number(curr.total_sales) : 0,
+      ...(hasCompare && { compare: cmp ? Number(cmp.total_sales) : 0 }),
+    };
+  });
 
   const salesPct = compareTotalSales !== undefined ? pctChange(totalSales, compareTotalSales) : null;
   const ordersPct = compareTotalOrders !== undefined ? pctChange(totalOrders, compareTotalOrders) : null;
@@ -96,8 +106,8 @@ export default function SalesOverview({
       </div>
 
       {chartData.length > 0 && (
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={chartData}>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chartData} barCategoryGap="30%" barGap={2}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis
               dataKey="date"
@@ -109,10 +119,25 @@ export default function SalesOverview({
               tickFormatter={formatCurrency}
             />
             <Tooltip
-              formatter={(v) => Number(v).toLocaleString("ko-KR")}
+              formatter={(value, name) => [
+                Number(value).toLocaleString("ko-KR") + "원",
+                name === "current" ? "현재 기간" : "비교 기간",
+              ]}
               labelFormatter={(l) => `${l}`}
             />
-            <Bar dataKey="sales" name="매출" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            <Legend
+              verticalAlign="bottom"
+              height={32}
+              formatter={(value) => (
+                <span style={{ fontSize: 12, color: "#6b7280" }}>
+                  {value === "current" ? "현재 기간" : "비교 기간"}
+                </span>
+              )}
+            />
+            <Bar dataKey="current" name="current" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            {hasCompare && (
+              <Bar dataKey="compare" name="compare" fill="#d1d5db" radius={[4, 4, 0, 0]} />
+            )}
           </BarChart>
         </ResponsiveContainer>
       )}

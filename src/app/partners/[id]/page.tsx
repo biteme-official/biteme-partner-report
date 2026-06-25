@@ -184,6 +184,7 @@ export default function PartnerDetailPage({
               totalSales={totalSales}
               totalOrders={totalOrders}
               totalBuyers={totalBuyers}
+              compareSales={compareSales.length > 0 ? compareSales : undefined}
               compareTotalSales={compareTotalSales}
               compareTotalOrders={compareTotalOrders}
               compareTotalBuyers={compareTotalBuyers}
