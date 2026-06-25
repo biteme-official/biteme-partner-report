@@ -134,10 +134,10 @@ export default function SalesOverview({
                 </span>
               )}
             />
-            <Bar dataKey="current" name="current" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             {hasCompare && (
               <Bar dataKey="compare" name="compare" fill="#d1d5db" radius={[4, 4, 0, 0]} />
             )}
+            <Bar dataKey="current" name="current" fill="#3b82f6" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}
