@@ -48,7 +48,7 @@ export default function PartnerDetailPage({
   const [data, setData] = useState<DetailData | null>(null);
   const [compareData, setCompareData] = useState<Pick<DetailData, "sales"> | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [compareDateRange, setCompareDateRange] = useState<DateRange | null>(null);
 

@@ -151,6 +151,15 @@ const PRESET_EFFECTIVE_LABEL: Record<PeriodPreset, string> = {
   custom: "직전 동기간",
 };
 
+const PRESET_COMPARE_MAP: Record<PeriodPreset, CompareOption> = {
+  today: "yesterday",
+  week: "prev_week",
+  month: "prev_month",
+  "3months": "prev_year",
+  "6months": "prev_year",
+  custom: "custom",
+};
+
 export default function PeriodFilter({ onChange }: Props) {
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("today");
   const [customStart, setCustomStart] = useState("");
@@ -214,15 +223,20 @@ export default function PeriodFilter({ onChange }: Props) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-400 font-medium shrink-0 w-8">비교</span>
         <div className="flex flex-wrap gap-1">
-          {COMPARE_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setCompareOption(opt)}
-              className={`${btnBase} ${compareOption === opt ? activeBtn : inactiveBtn}`}
-            >
-              {COMPARE_LABELS[opt]}
-            </button>
-          ))}
+          {COMPARE_OPTIONS.map((opt) => {
+            const isActive =
+              compareOption === opt ||
+              (compareOption === "preset" && opt !== "preset" && PRESET_COMPARE_MAP[periodPreset] === opt);
+            return (
+              <button
+                key={opt}
+                onClick={() => setCompareOption(opt)}
+                className={`${btnBase} ${isActive ? activeBtn : inactiveBtn}`}
+              >
+                {COMPARE_LABELS[opt]}
+              </button>
+            );
+          })}
         </div>
         {compareOption === "preset" && (
           <span className="text-xs text-orange-500 font-medium">
