@@ -52,13 +52,13 @@ export default function SalesOverview({
   compareTotalBuyers,
 }: Props) {
   const hasCompare = !!compareSales && compareSales.length > 0;
-  const maxLen = Math.max(sales.length, hasCompare ? compareSales!.length : 0);
+  const maxLen = Math.max(sales.length, compareSales?.length ?? 0);
 
   const chartData = Array.from({ length: maxLen }, (_, i) => {
     const curr = sales[i];
     const cmp = compareSales?.[i];
     return {
-      date: curr ? formatDate(curr.sale_date) : (cmp ? formatDate(cmp.sale_date) : `${i + 1}일`),
+      date: curr ? formatDate(curr.sale_date) : `${i + 1}일`,
       current: curr ? Number(curr.total_sales) : 0,
       ...(hasCompare && { compare: cmp ? Number(cmp.total_sales) : 0 }),
     };

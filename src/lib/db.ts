@@ -36,19 +36,21 @@ async function withConnection<T>(
       });
   });
 
-  const conn = await mysql.createConnection({
-    host: "127.0.0.1",
-    user: process.env.DB_USER!,
-    password: process.env.DB_PASSWORD!,
-    database: process.env.DB_NAME!,
-    stream,
-    charset: "utf8mb4",
-  });
-
   try {
-    return await fn(conn);
+    const conn = await mysql.createConnection({
+      host: "127.0.0.1",
+      user: process.env.DB_USER!,
+      password: process.env.DB_PASSWORD!,
+      database: process.env.DB_NAME!,
+      stream,
+      charset: "utf8mb4",
+    });
+    try {
+      return await fn(conn);
+    } finally {
+      await conn.end();
+    }
   } finally {
-    await conn.end();
     sshClient.end();
   }
 }

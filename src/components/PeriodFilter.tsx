@@ -178,6 +178,7 @@ export default function PeriodFilter({ onChange }: Props) {
   }, [periodPreset, customStart, customEnd, compareOption, compareCustomStart, compareCustomEnd]);
 
   const activeBtn = "bg-orange-500 text-white font-medium";
+  const mappedBtn = "text-orange-500 ring-1 ring-orange-400 bg-orange-50 font-medium";
   const inactiveBtn = "text-gray-600 hover:text-gray-900 hover:bg-gray-100";
   const btnBase = "px-3 py-1.5 text-sm rounded-md transition-colors";
 
@@ -224,14 +225,14 @@ export default function PeriodFilter({ onChange }: Props) {
         <span className="text-xs text-gray-400 font-medium shrink-0 w-8">비교</span>
         <div className="flex flex-wrap gap-1">
           {COMPARE_OPTIONS.map((opt) => {
-            const isActive =
-              compareOption === opt ||
-              (compareOption === "preset" && opt !== "preset" && PRESET_COMPARE_MAP[periodPreset] === opt);
+            const isSelected = compareOption === opt;
+            const isMapped = compareOption === "preset" && opt !== "preset" && PRESET_COMPARE_MAP[periodPreset] === opt;
+            const cls = isSelected ? activeBtn : isMapped ? mappedBtn : inactiveBtn;
             return (
               <button
                 key={opt}
                 onClick={() => setCompareOption(opt)}
-                className={`${btnBase} ${isActive ? activeBtn : inactiveBtn}`}
+                className={`${btnBase} ${cls}`}
               >
                 {COMPARE_LABELS[opt]}
               </button>
