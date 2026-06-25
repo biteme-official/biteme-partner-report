@@ -99,12 +99,9 @@ export default function PartnersPage() {
               </button>
               {(() => {
                 const PAGE_WINDOW = 10;
-                let start = Math.max(1, page - Math.floor(PAGE_WINDOW / 2));
-                let end = Math.min(totalPages, start + PAGE_WINDOW - 1);
-                if (end - start < PAGE_WINDOW - 1) {
-                  start = Math.max(1, end - PAGE_WINDOW + 1);
-                }
-                return Array.from({ length: end - start + 1 }, (_, i) => start + i).map((p) => (
+                const groupStart = Math.floor((page - 1) / PAGE_WINDOW) * PAGE_WINDOW + 1;
+                const groupEnd = Math.min(totalPages, groupStart + PAGE_WINDOW - 1);
+                return Array.from({ length: groupEnd - groupStart + 1 }, (_, i) => groupStart + i).map((p) => (
                   <button
                     key={p}
                     onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
