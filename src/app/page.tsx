@@ -33,6 +33,11 @@ export default function PartnersPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const PAGE_WINDOW = 10;
+  const groupStart = Math.floor((page - 1) / PAGE_WINDOW) * PAGE_WINDOW + 1;
+  const groupEnd = Math.min(totalPages, groupStart + PAGE_WINDOW - 1);
+  const pageNumbers = Array.from({ length: groupEnd - groupStart + 1 }, (_, i) => groupStart + i);
+
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
       <header className="mb-8">
@@ -97,24 +102,19 @@ export default function PartnersPage() {
               >
                 이전
               </button>
-              {(() => {
-                const PAGE_WINDOW = 10;
-                const groupStart = Math.floor((page - 1) / PAGE_WINDOW) * PAGE_WINDOW + 1;
-                const groupEnd = Math.min(totalPages, groupStart + PAGE_WINDOW - 1);
-                return Array.from({ length: groupEnd - groupStart + 1 }, (_, i) => groupStart + i).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                      page === p
-                        ? "bg-blue-500 text-white border-blue-500 font-medium"
-                        : "border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ));
-              })()}
+              {pageNumbers.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                    page === p
+                      ? "bg-blue-500 text-white border-blue-500 font-medium"
+                      : "border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
               <button
                 onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 disabled={page === totalPages}
