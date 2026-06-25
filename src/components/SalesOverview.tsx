@@ -22,11 +22,21 @@ function formatCurrency(n: number): string {
   return n.toLocaleString("ko-KR");
 }
 
+function pctChange(curr: number, prev: number): { label: string; positive: boolean } {
+  if (prev === 0 && curr === 0) return { label: "0%", positive: true };
+  if (prev === 0) return { label: "+∞%", positive: true };
+  const pct = ((curr - prev) / prev) * 100;
+  return { label: (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%", positive: pct >= 0 };
+}
+
 interface Props {
   sales: DailySales[];
   totalSales: number;
   totalOrders: number;
   totalBuyers: number;
+  compareTotalSales?: number;
+  compareTotalOrders?: number;
+  compareTotalBuyers?: number;
 }
 
 export default function SalesOverview({
@@ -34,6 +44,9 @@ export default function SalesOverview({
   totalSales,
   totalOrders,
   totalBuyers,
+  compareTotalSales,
+  compareTotalOrders,
+  compareTotalBuyers,
 }: Props) {
   const chartData = sales.map((s) => ({
     date: formatDate(s.sale_date),
@@ -41,30 +54,44 @@ export default function SalesOverview({
     orders: Number(s.order_count),
   }));
 
+  const salesPct = compareTotalSales !== undefined ? pctChange(totalSales, compareTotalSales) : null;
+  const ordersPct = compareTotalOrders !== undefined ? pctChange(totalOrders, compareTotalOrders) : null;
+  const buyersPct = compareTotalBuyers !== undefined ? pctChange(totalBuyers, compareTotalBuyers) : null;
+
   return (
     <section className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">
-        매출 현황
-      </h2>
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">매출 현황</h2>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 rounded-lg p-4">
           <p className="text-sm text-blue-600">총 매출</p>
-          <p className="text-xl font-bold text-blue-900">
-            {formatCurrency(totalSales)}
-          </p>
+          <p className="text-xl font-bold text-blue-900">{formatCurrency(totalSales)}</p>
+          {salesPct && (
+            <p className={`text-xs mt-1 font-medium ${salesPct.positive ? "text-green-600" : "text-red-500"}`}>
+              {salesPct.label}{" "}
+              <span className="text-gray-400 font-normal">전기간 대비</span>
+            </p>
+          )}
         </div>
         <div className="bg-green-50 rounded-lg p-4">
           <p className="text-sm text-green-600">주문 수</p>
-          <p className="text-xl font-bold text-green-900">
-            {totalOrders.toLocaleString("ko-KR")}
-          </p>
+          <p className="text-xl font-bold text-green-900">{totalOrders.toLocaleString("ko-KR")}</p>
+          {ordersPct && (
+            <p className={`text-xs mt-1 font-medium ${ordersPct.positive ? "text-green-600" : "text-red-500"}`}>
+              {ordersPct.label}{" "}
+              <span className="text-gray-400 font-normal">전기간 대비</span>
+            </p>
+          )}
         </div>
         <div className="bg-purple-50 rounded-lg p-4">
           <p className="text-sm text-purple-600">구매자 수</p>
-          <p className="text-xl font-bold text-purple-900">
-            {totalBuyers.toLocaleString("ko-KR")}
-          </p>
+          <p className="text-xl font-bold text-purple-900">{totalBuyers.toLocaleString("ko-KR")}</p>
+          {buyersPct && (
+            <p className={`text-xs mt-1 font-medium ${buyersPct.positive ? "text-green-600" : "text-red-500"}`}>
+              {buyersPct.label}{" "}
+              <span className="text-gray-400 font-normal">전기간 대비</span>
+            </p>
+          )}
         </div>
       </div>
 
