@@ -85,7 +85,7 @@ export default function PartnerDetailPage({
 
     Promise.all([
       safeFetch(mainUrl) as Promise<DetailData>,
-      safeFetch(`/api/partners/${id}/insights`) as Promise<InsightData>,
+      safeFetch(`/api/partners/${id}/insights`).catch(() => null) as Promise<InsightData | null>,
       cmpPromise,
     ])
       .then(([detailData, insightData, cmpData]) => {
