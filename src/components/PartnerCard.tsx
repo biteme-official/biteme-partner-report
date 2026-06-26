@@ -17,7 +17,7 @@ export default function PartnerCard({ partner }: { partner: PartnerSummary }) {
   return (
     <Link
       href={`/partners/${partner.partner_id}`}
-      className="block w-[400px] bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
+      className="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-900 truncate">
