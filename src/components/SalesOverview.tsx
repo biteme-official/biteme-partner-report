@@ -97,7 +97,7 @@ export default function SalesOverview({
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 rounded-lg p-4">
           <p className="text-sm text-blue-600">총 매출</p>
-          <p className="text-xl font-bold text-blue-900">{formatCurrency(totalSales)}</p>
+          <p className="text-xl font-bold text-blue-900">{totalSales.toLocaleString("ko-KR")}원</p>
           {salesPct && (
             <p className={`text-xs mt-1 font-medium ${salesPct.positive ? "text-green-600" : "text-red-500"}`}>
               {salesPct.label}{" "}
