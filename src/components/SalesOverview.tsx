@@ -59,7 +59,6 @@ export default function SalesOverview({
 
   if (isHourly) {
     const hourlySales = sales as HourlySales[];
-    const compareHourly = compareSales as HourlySales[] | undefined;
     const currentHour = new Date().getHours();
 
     const salesMap = new Map(hourlySales.map((s) => [Number(s.sale_hour), Number(s.total_sales)]));

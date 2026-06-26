@@ -142,13 +142,12 @@ const PRESET_EFFECTIVE_LABEL: Record<PeriodPreset, string> = {
   custom: "직전 동기간",
 };
 
-const PRESET_COMPARE_MAP: Record<PeriodPreset, CompareOption> = {
+const PRESET_COMPARE_MAP: Partial<Record<PeriodPreset, CompareOption>> = {
   today: "yesterday",
   week: "prev_week",
   month: "prev_month",
   "3months": "prev_year",
   "6months": "prev_year",
-  custom: "prev_year",
 };
 
 export default function PeriodFilter({ onChange }: Props) {
@@ -215,7 +214,7 @@ export default function PeriodFilter({ onChange }: Props) {
         <div className="flex flex-wrap gap-1">
           {(compareOption === "off" ? (["preset", "off"] as CompareOption[]) : COMPARE_OPTIONS).map((opt) => {
             const isSelected = compareOption === opt;
-            const isMapped = compareOption === "preset" && opt !== "preset" && PRESET_COMPARE_MAP[periodPreset] === opt;
+            const isMapped = compareOption === "preset" && opt !== "preset" && !!PRESET_COMPARE_MAP[periodPreset] && PRESET_COMPARE_MAP[periodPreset] === opt;
             const cls = isSelected ? activeBtn : isMapped ? mappedBtn : inactiveBtn;
             return (
               <button
