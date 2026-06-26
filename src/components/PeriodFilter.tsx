@@ -121,7 +121,7 @@ function getCompareRange(
 }
 
 const PERIOD_PRESETS: PeriodPreset[] = ["today", "week", "month", "3months", "6months", "custom"];
-const COMPARE_OPTIONS: CompareOption[] = ["preset", "off", "yesterday", "prev_week", "prev_month", "prev_year", "custom"];
+const COMPARE_OPTIONS: CompareOption[] = ["preset", "off", "yesterday", "prev_week", "prev_month", "prev_year"];
 
 const PERIOD_LABELS: Record<PeriodPreset, string> = {
   today: "오늘",
