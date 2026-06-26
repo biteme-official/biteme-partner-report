@@ -87,7 +87,7 @@ export default function PartnersPage() {
         </p>
       ) : (
         <>
-          <div className="flex flex-wrap gap-4">
+          <div className="grid grid-cols-3 justify-items-start gap-4">
             {paginated.map((p) => (
               <PartnerCard key={p.partner_id} partner={p} />
             ))}
