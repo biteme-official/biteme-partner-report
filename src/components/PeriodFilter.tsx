@@ -133,7 +133,7 @@ const PERIOD_LABELS: Record<PeriodPreset, string> = {
 };
 
 const COMPARE_LABELS: Record<CompareOption, string> = {
-  preset: "프리셋",
+  preset: "자동",
   off: "끄기",
   yesterday: "어제",
   prev_week: "전주",
@@ -224,14 +224,20 @@ export default function PeriodFilter({ onChange }: Props) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-400 font-medium shrink-0 w-8">비교</span>
         <div className="flex flex-wrap gap-1">
-          {COMPARE_OPTIONS.map((opt) => {
+          {(compareOption === "off" ? (["off"] as CompareOption[]) : COMPARE_OPTIONS).map((opt) => {
             const isSelected = compareOption === opt;
             const isMapped = compareOption === "preset" && opt !== "preset" && PRESET_COMPARE_MAP[periodPreset] === opt;
             const cls = isSelected ? activeBtn : isMapped ? mappedBtn : inactiveBtn;
             return (
               <button
                 key={opt}
-                onClick={() => setCompareOption(opt)}
+                onClick={() => {
+                  if (opt === "off" && compareOption === "off") {
+                    setCompareOption("preset");
+                  } else {
+                    setCompareOption(opt);
+                  }
+                }}
                 className={`${btnBase} ${cls}`}
               >
                 {COMPARE_LABELS[opt]}
