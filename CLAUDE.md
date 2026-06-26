@@ -7,14 +7,16 @@
 - Stack: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 + Recharts
 - 배포: Vercel — GitHub 연동 자동 배포 (PR → Preview, 머지 → Production)
 - Production: https://biteme-partner-report.vercel.app
-- Maintainer: @bmahsang (main + 배포 권한 독점)
-- Developer: platform팀 (Write 권한)
+- Admin: @bmahsang, @bmhayoung (admin + maintain — 배포·Branch Protection 권한)
+- Maintainer: @bmyoujin (maintain + push — PR 머지 권한 포함)
+- Developer: @bmkyuri, @bmtnqls021 (push 권한)
+- Read: 그 외 팀원
 
 
 ## 절대 금지
 
 1. master 직접 commit/push 금지
-2. master 직접 머지 금지 (Maintainer만)
+2. master 직접 머지 금지 (Maintainer 이상만)
 3. 다른 사람 PR 강제 머지 금지
 4. 이슈/PR 없이 코드 푸시 금지
 5. Production 배포 명령 실행 금지 (Maintainer 전용)
@@ -26,7 +28,7 @@
 
 ## 작업 시작 시 필수 절차
 
-1. 사용자 신원 확인 (Maintainer / Developer 구분)
+1. 사용자 신원 확인 (Admin / Maintainer / Developer 구분)
 2. 작업 상태 점검 (git status, gh pr list, gh issue list)
 3. 중복/충돌 검증 — 같은 파일 수정 중인 PR 있는지 확인 → 발견 시 사용자에게 보고
 4. master 최신화 (git pull)
@@ -87,15 +89,18 @@
 ### 4. Maintainer에게 리뷰 요청 자동 발송
 
 
-## Maintainer 전용 작업 (Developer는 거부)
+## 권한별 허용 작업
 
+### Maintainer 이상 (@bmyoujin, @bmahsang, @bmhayoung)
 - PR 머지 (gh pr merge)
-- Production 배포 (vercel --prod 등)
-- Branch Protection 변경
 - 다른 사람 PR Approve
 - Release 생성
 
-→ Developer 요청 시 거부, @bmahsang에게 요청하도록 안내
+### Admin 전용 (@bmahsang, @bmhayoung)
+- Production 배포 (vercel --prod 등)
+- Branch Protection 변경
+
+→ Developer 요청 시 거부, 해당 권한자에게 요청하도록 안내
 
 
 ## 기획서/문서 정리
