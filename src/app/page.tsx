@@ -39,7 +39,7 @@ export default function PartnersPage() {
   const pageNumbers = Array.from({ length: groupEnd - groupStart + 1 }, (_, i) => groupStart + i);
 
   return (
-    <main className="max-w-[1280px] mx-auto px-4 py-8">
+    <main className="max-w-[1300px] mx-auto px-4 py-8">
       <header className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
           Partner Report
