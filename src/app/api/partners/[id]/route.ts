@@ -20,7 +20,8 @@ export async function GET(
   const endDateParam = searchParams.get("endDate");
 
   let start: Date, end: Date;
-  const isHourly = !!startDateParam && !!endDateParam && startDateParam === endDateParam;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isHourly = !!startDateParam && !!endDateParam && startDateParam === endDateParam && startDateParam === todayStr;
 
   if (startDateParam && endDateParam) {
     start = new Date(startDateParam + "T00:00:00");
