@@ -63,14 +63,14 @@ export default function SalesOverview({
     const currentHour = new Date().getHours();
 
     const salesMap = new Map(hourlySales.map((s) => [Number(s.sale_hour), Number(s.total_sales)]));
-    const compareMap = compareHourly
-      ? new Map(compareHourly.map((s) => [Number(s.sale_hour), Number(s.total_sales)]))
+    const compareMap = hasCompare
+      ? new Map((compareSales as HourlySales[]).map((s) => [Number(s.sale_hour), Number(s.total_sales)]))
       : null;
 
     chartData = Array.from({ length: 24 }, (_, h) => ({
       date: `${h}시`,
       current: h <= currentHour ? (salesMap.get(h) ?? 0) : null,
-      ...(hasCompare && { compare: compareMap?.get(h) ?? 0 }),
+      ...(hasCompare && { compare: h <= currentHour ? (compareMap!.get(h) ?? 0) : null }),
     }));
   } else {
     const dailySales = sales as DailySales[];

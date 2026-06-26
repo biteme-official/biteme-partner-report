@@ -44,6 +44,7 @@ async function withConnection<T>(
       database: process.env.DB_NAME!,
       stream,
       charset: "utf8mb4",
+      timezone: "+09:00",
     });
     try {
       return await fn(conn);

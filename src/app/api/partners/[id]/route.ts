@@ -23,8 +23,8 @@ export async function GET(
   const isHourly = !!startDateParam && !!endDateParam && startDateParam === endDateParam;
 
   if (startDateParam && endDateParam) {
-    start = new Date(startDateParam + "T00:00:00");
-    end = new Date(endDateParam + "T23:59:59");
+    start = new Date(startDateParam + "T00:00:00+09:00");
+    end = new Date(endDateParam + "T23:59:59+09:00");
   } else {
     const days = Number(searchParams.get("days") || 30);
     end = new Date();
