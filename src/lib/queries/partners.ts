@@ -81,6 +81,28 @@ export function partnerSalesSQL(partnerId: string, start: Date, end: Date): stri
   `;
 }
 
+export function partnerHourlySalesSQL(partnerId: string, start: Date, end: Date): string {
+  return `
+    SELECT
+      HOUR(op.reg_date) AS sale_hour,
+      COUNT(DISTINCT op.ocode) AS order_count,
+      COUNT(DISTINCT oi.user_id) AS buyer_count,
+      SUM(op.qty) AS total_qty,
+      ROUND(SUM(op.total_price)) AS total_sales
+    FROM wt_order_product op
+    JOIN wt_order_info oi ON op.ocode = oi.ocode
+    JOIN wt_product p ON op.product_cd = p.product_cd
+    WHERE p.supplier = ${Number(partnerId)}
+      AND oi.order_yn = 'y'
+      AND op.product_order_state_cd NOT IN (${STATES})
+      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
+      AND op.product_nm NOT LIKE '%응모권%'
+      AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
+    GROUP BY HOUR(op.reg_date)
+    ORDER BY sale_hour
+  `;
+}
+
 export function partnerProductsSQL(partnerId: string, start: Date, end: Date): string {
   return `
     SELECT

@@ -10,6 +10,7 @@ import PeriodFilter, { type DateRange } from "@/components/PeriodFilter";
 import type {
   PartnerDetail,
   DailySales,
+  HourlySales,
   ProductSales,
   BrandInfo,
   MonthlySales,
@@ -21,7 +22,8 @@ import type {
 
 interface DetailData {
   detail: PartnerDetail;
-  sales: DailySales[];
+  sales: DailySales[] | HourlySales[];
+  granularity: "daily" | "hourly";
   products: ProductSales[];
   brands: BrandInfo[];
 }
@@ -181,6 +183,7 @@ export default function PartnerDetailPage({
           <div className="space-y-6">
             <SalesOverview
               sales={sales}
+              isHourly={data?.granularity === "hourly"}
               totalSales={totalSales}
               totalOrders={totalOrders}
               totalBuyers={totalBuyers}

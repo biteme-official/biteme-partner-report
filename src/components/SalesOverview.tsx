@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import type { DailySales } from "@/lib/types";
+import type { DailySales, HourlySales } from "@/lib/types";
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -31,11 +31,12 @@ function pctChange(curr: number, prev: number): { label: string; positive: boole
 }
 
 interface Props {
-  sales: DailySales[];
+  sales: DailySales[] | HourlySales[];
+  isHourly?: boolean;
   totalSales: number;
   totalOrders: number;
   totalBuyers: number;
-  compareSales?: DailySales[];
+  compareSales?: DailySales[] | HourlySales[];
   compareTotalSales?: number;
   compareTotalOrders?: number;
   compareTotalBuyers?: number;
@@ -43,6 +44,7 @@ interface Props {
 
 export default function SalesOverview({
   sales,
+  isHourly,
   totalSales,
   totalOrders,
   totalBuyers,
@@ -52,17 +54,37 @@ export default function SalesOverview({
   compareTotalBuyers,
 }: Props) {
   const hasCompare = !!compareSales && compareSales.length > 0;
-  const maxLen = Math.max(sales.length, compareSales?.length ?? 0);
 
-  const chartData = Array.from({ length: maxLen }, (_, i) => {
-    const curr = sales[i];
-    const cmp = compareSales?.[i];
-    return {
-      date: curr ? formatDate(curr.sale_date) : `${i + 1}일`,
-      current: curr ? Number(curr.total_sales) : 0,
-      ...(hasCompare && { compare: cmp ? Number(cmp.total_sales) : 0 }),
-    };
-  });
+  let chartData: { date: string; current: number | null; compare?: number | null }[];
+
+  if (isHourly) {
+    const hourlySales = sales as HourlySales[];
+    const compareHourly = compareSales as HourlySales[] | undefined;
+    const currentHour = new Date().getHours();
+
+    const salesMap = new Map(hourlySales.map((s) => [Number(s.sale_hour), Number(s.total_sales)]));
+    const compareMap = compareHourly
+      ? new Map(compareHourly.map((s) => [Number(s.sale_hour), Number(s.total_sales)]))
+      : null;
+
+    chartData = Array.from({ length: 24 }, (_, h) => ({
+      date: `${h}시`,
+      current: h <= currentHour ? (salesMap.get(h) ?? 0) : null,
+      ...(hasCompare && { compare: compareMap?.get(h) ?? 0 }),
+    }));
+  } else {
+    const dailySales = sales as DailySales[];
+    const maxLen = Math.max(dailySales.length, compareSales?.length ?? 0);
+    chartData = Array.from({ length: maxLen }, (_, i) => {
+      const curr = dailySales[i];
+      const cmp = (compareSales as DailySales[])?.[i];
+      return {
+        date: curr ? formatDate(curr.sale_date) : `${i + 1}일`,
+        current: curr ? Number(curr.total_sales) : 0,
+        ...(hasCompare && { compare: cmp ? Number(cmp.total_sales) : 0 }),
+      };
+    });
+  }
 
   const salesPct = compareTotalSales !== undefined ? pctChange(totalSales, compareTotalSales) : null;
   const ordersPct = compareTotalOrders !== undefined ? pctChange(totalOrders, compareTotalOrders) : null;
@@ -111,8 +133,8 @@ export default function SalesOverview({
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 12, fill: "#9ca3af" }}
-              interval="preserveStartEnd"
+              tick={{ fontSize: isHourly ? 10 : 12, fill: "#9ca3af" }}
+              interval={isHourly ? 0 : "preserveStartEnd"}
             />
             <YAxis
               tick={{ fontSize: 12, fill: "#9ca3af" }}

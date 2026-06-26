@@ -24,6 +24,14 @@ export interface DailySales {
   total_sales: number;
 }
 
+export interface HourlySales {
+  sale_hour: number;
+  order_count: number;
+  buyer_count: number;
+  total_qty: number;
+  total_sales: number;
+}
+
 export interface ProductSales {
   product_cd: string;
   product_nm: string;

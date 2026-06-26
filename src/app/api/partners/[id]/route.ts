@@ -3,10 +3,11 @@ import { queryBatch } from "@/lib/db";
 import {
   partnerDetailSQL,
   partnerSalesSQL,
+  partnerHourlySalesSQL,
   partnerProductsSQL,
   partnerBrandsSQL,
 } from "@/lib/queries/partners";
-import type { PartnerDetail, DailySales, ProductSales, BrandInfo } from "@/lib/types";
+import type { PartnerDetail, DailySales, HourlySales, ProductSales, BrandInfo } from "@/lib/types";
 
 export async function GET(
   req: NextRequest,
@@ -19,6 +20,8 @@ export async function GET(
   const endDateParam = searchParams.get("endDate");
 
   let start: Date, end: Date;
+  const isHourly = !!startDateParam && !!endDateParam && startDateParam === endDateParam;
+
   if (startDateParam && endDateParam) {
     start = new Date(startDateParam + "T00:00:00");
     end = new Date(endDateParam + "T23:59:59");
@@ -30,9 +33,13 @@ export async function GET(
   }
 
   try {
-    const [detail, sales, products, brands] = await queryBatch<[PartnerDetail[], DailySales[], ProductSales[], BrandInfo[]]>([
+    const salesSQL = isHourly
+      ? partnerHourlySalesSQL(id, start, end)
+      : partnerSalesSQL(id, start, end);
+
+    const [detail, sales, products, brands] = await queryBatch<[PartnerDetail[], (DailySales | HourlySales)[], ProductSales[], BrandInfo[]]>([
       partnerDetailSQL(id, start, end),
-      partnerSalesSQL(id, start, end),
+      salesSQL,
       partnerProductsSQL(id, start, end),
       partnerBrandsSQL(id),
     ]);
@@ -47,6 +54,7 @@ export async function GET(
     return NextResponse.json({
       detail: detail[0],
       sales,
+      granularity: isHourly ? "hourly" : "daily",
       products,
       brands,
       period: { start, end },
