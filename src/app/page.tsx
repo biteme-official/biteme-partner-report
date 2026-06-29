@@ -87,7 +87,7 @@ export default function PartnersPage() {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] lg:grid-cols-[repeat(3,400px)] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
             {paginated.map((p) => (
               <PartnerCard key={p.partner_id} partner={p} />
             ))}
