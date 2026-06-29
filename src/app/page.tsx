@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import PartnerCard from "@/components/PartnerCard";
 import type { PartnerSummary } from "@/lib/types";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 12;
 
 export default function PartnersPage() {
   const [partners, setPartners] = useState<PartnerSummary[]>([]);
