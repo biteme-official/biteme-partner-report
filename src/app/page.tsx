@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import PartnerCard from "@/components/PartnerCard";
 import type { PartnerSummary } from "@/lib/types";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 12;
 
 export default function PartnersPage() {
   const [partners, setPartners] = useState<PartnerSummary[]>([]);
@@ -39,7 +39,7 @@ export default function PartnersPage() {
   const pageNumbers = Array.from({ length: groupEnd - groupStart + 1 }, (_, i) => groupStart + i);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
+    <main className="max-w-[1300px] mx-auto px-4 py-8">
       <header className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
           Partner Report
@@ -87,7 +87,7 @@ export default function PartnersPage() {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginated.map((p) => (
               <PartnerCard key={p.partner_id} partner={p} />
             ))}
