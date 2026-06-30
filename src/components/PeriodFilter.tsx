@@ -11,7 +11,7 @@ export interface DateRange {
 }
 
 interface Props {
-  onChange: (main: DateRange, compare: DateRange | null) => void;
+  onChange: (main: DateRange, compare: DateRange | null, preset: PeriodPreset) => void;
 }
 
 function startOfDay(d: Date): Date {
@@ -162,7 +162,7 @@ export default function PeriodFilter({ onChange }: Props) {
   useEffect(() => {
     const main = getMainRange(periodPreset, customStart, customEnd);
     const compare = getCompareRange(compareOption, periodPreset, main);
-    onChangeRef.current(main, compare);
+    onChangeRef.current(main, compare, periodPreset);
   }, [periodPreset, customStart, customEnd, compareOption]);
 
   const activeBtn = "bg-orange-500 text-white font-medium";
