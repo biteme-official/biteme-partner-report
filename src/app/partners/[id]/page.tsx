@@ -6,10 +6,11 @@ import SalesOverview from "@/components/SalesOverview";
 import ProductMix from "@/components/ProductMix";
 import InsightSection from "@/components/InsightSection";
 import BuyerAnalysis from "@/components/BuyerAnalysis";
-import PeriodFilter, { type DateRange } from "@/components/PeriodFilter";
+import PeriodFilter, { type DateRange, type PeriodPreset } from "@/components/PeriodFilter";
 import type {
   PartnerDetail,
   DailySales,
+  HourlySales,
   ProductSales,
   BrandInfo,
   MonthlySales,
@@ -21,7 +22,8 @@ import type {
 
 interface DetailData {
   detail: PartnerDetail;
-  sales: DailySales[];
+  sales: DailySales[] | HourlySales[];
+  granularity: "daily" | "hourly";
   products: ProductSales[];
   brands: BrandInfo[];
 }
@@ -49,16 +51,14 @@ export default function PartnerDetailPage({
   const [compareData, setCompareData] = useState<Pick<DetailData, "sales"> | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  const [compareDateRange, setCompareDateRange] = useState<DateRange | null>(null);
+  const [filter, setFilter] = useState<{ main: DateRange; compare: DateRange | null; isHourly: boolean } | null>(null);
 
-  const handleFilterChange = useCallback((main: DateRange, compare: DateRange | null) => {
-    setDateRange(main);
-    setCompareDateRange(compare);
+  const handleFilterChange = useCallback((main: DateRange, compare: DateRange | null, preset: PeriodPreset) => {
+    setFilter({ main, compare, isHourly: preset === "today" });
   }, []);
 
   useEffect(() => {
-    if (!dateRange) return;
+    if (!filter) return;
 
     const controller = new AbortController();
     const { signal } = controller;
@@ -71,15 +71,17 @@ export default function PartnerDetailPage({
 
     setLoading(true);
 
-    const startStr = toApiDate(dateRange.start);
-    const endStr = toApiDate(dateRange.end);
-    const mainUrl = `/api/partners/${id}?startDate=${startStr}&endDate=${endStr}`;
+    const { main, compare: compareDateRange, isHourly } = filter;
+    const granularityParam = isHourly ? "&granularity=hourly" : "";
+    const startStr = toApiDate(main.start);
+    const endStr = toApiDate(main.end);
+    const mainUrl = `/api/partners/${id}?startDate=${startStr}&endDate=${endStr}${granularityParam}`;
 
     const cmpPromise: Promise<DetailData | null> = compareDateRange
       ? (() => {
           const cStart = toApiDate(compareDateRange.start);
           const cEnd = toApiDate(compareDateRange.end);
-          return safeFetch(`/api/partners/${id}?startDate=${cStart}&endDate=${cEnd}`) as Promise<DetailData>;
+          return safeFetch(`/api/partners/${id}?startDate=${cStart}&endDate=${cEnd}${granularityParam}`) as Promise<DetailData>;
         })()
       : Promise.resolve(null);
 
@@ -103,7 +105,7 @@ export default function PartnerDetailPage({
       });
 
     return () => controller.abort();
-  }, [id, dateRange, compareDateRange]);
+  }, [id, filter]);
 
   const { detail, sales = [], products = [], brands = [] } = data ?? {};
 
@@ -181,6 +183,7 @@ export default function PartnerDetailPage({
           <div className="space-y-6">
             <SalesOverview
               sales={sales}
+              isHourly={filter?.isHourly}
               totalSales={totalSales}
               totalOrders={totalOrders}
               totalBuyers={totalBuyers}

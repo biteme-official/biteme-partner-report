@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 
 export type PeriodPreset = "today" | "week" | "month" | "3months" | "6months" | "custom";
-export type CompareOption = "preset" | "off" | "yesterday" | "prev_week" | "prev_month" | "prev_year" | "custom";
+export type CompareOption = "preset" | "off" | "yesterday" | "prev_week" | "prev_month" | "prev_year";
 
 export interface DateRange {
   start: Date;
@@ -11,7 +11,7 @@ export interface DateRange {
 }
 
 interface Props {
-  onChange: (main: DateRange, compare: DateRange | null) => void;
+  onChange: (main: DateRange, compare: DateRange | null, preset: PeriodPreset) => void;
 }
 
 function startOfDay(d: Date): Date {
@@ -69,9 +69,7 @@ function getMainRange(preset: PeriodPreset, customStart: string, customEnd: stri
 function getCompareRange(
   compareOption: CompareOption,
   periodPreset: PeriodPreset,
-  main: DateRange,
-  compareCustomStart: string,
-  compareCustomEnd: string
+  main: DateRange
 ): DateRange | null {
   if (compareOption === "off") return null;
 
@@ -110,18 +108,12 @@ function getCompareRange(
       return { start: shiftMonths(main.start, -1), end: shiftMonths(main.end, -1) };
     case "prev_year":
       return { start: shiftYears(main.start, -1), end: shiftYears(main.end, -1) };
-    case "custom":
-      if (!compareCustomStart || !compareCustomEnd) return null;
-      return {
-        start: new Date(compareCustomStart + "T00:00:00"),
-        end: new Date(compareCustomEnd + "T23:59:59"),
-      };
   }
   return null;
 }
 
 const PERIOD_PRESETS: PeriodPreset[] = ["today", "week", "month", "3months", "6months", "custom"];
-const COMPARE_OPTIONS: CompareOption[] = ["preset", "off", "yesterday", "prev_week", "prev_month", "prev_year", "custom"];
+const COMPARE_OPTIONS: CompareOption[] = ["preset", "off", "yesterday", "prev_week", "prev_month", "prev_year"];
 
 const PERIOD_LABELS: Record<PeriodPreset, string> = {
   today: "오늘",
@@ -133,13 +125,12 @@ const PERIOD_LABELS: Record<PeriodPreset, string> = {
 };
 
 const COMPARE_LABELS: Record<CompareOption, string> = {
-  preset: "프리셋",
+  preset: "자동",
   off: "끄기",
   yesterday: "어제",
   prev_week: "전주",
   prev_month: "전월",
   prev_year: "전년 동기간",
-  custom: "기간 설정",
 };
 
 const PRESET_EFFECTIVE_LABEL: Record<PeriodPreset, string> = {
@@ -151,13 +142,12 @@ const PRESET_EFFECTIVE_LABEL: Record<PeriodPreset, string> = {
   custom: "직전 동기간",
 };
 
-const PRESET_COMPARE_MAP: Record<PeriodPreset, CompareOption> = {
+const PRESET_COMPARE_MAP: Partial<Record<PeriodPreset, CompareOption>> = {
   today: "yesterday",
   week: "prev_week",
   month: "prev_month",
   "3months": "prev_year",
   "6months": "prev_year",
-  custom: "custom",
 };
 
 export default function PeriodFilter({ onChange }: Props) {
@@ -165,17 +155,15 @@ export default function PeriodFilter({ onChange }: Props) {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [compareOption, setCompareOption] = useState<CompareOption>("preset");
-  const [compareCustomStart, setCompareCustomStart] = useState("");
-  const [compareCustomEnd, setCompareCustomEnd] = useState("");
 
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
   useEffect(() => {
     const main = getMainRange(periodPreset, customStart, customEnd);
-    const compare = getCompareRange(compareOption, periodPreset, main, compareCustomStart, compareCustomEnd);
-    onChangeRef.current(main, compare);
-  }, [periodPreset, customStart, customEnd, compareOption, compareCustomStart, compareCustomEnd]);
+    const compare = getCompareRange(compareOption, periodPreset, main);
+    onChangeRef.current(main, compare, periodPreset);
+  }, [periodPreset, customStart, customEnd, compareOption]);
 
   const activeBtn = "bg-orange-500 text-white font-medium";
   const mappedBtn = "text-orange-500 ring-1 ring-orange-400 bg-orange-50 font-medium";
@@ -224,9 +212,9 @@ export default function PeriodFilter({ onChange }: Props) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-400 font-medium shrink-0 w-8">비교</span>
         <div className="flex flex-wrap gap-1">
-          {COMPARE_OPTIONS.map((opt) => {
+          {(compareOption === "off" ? (["preset", "off"] as CompareOption[]) : COMPARE_OPTIONS).map((opt) => {
             const isSelected = compareOption === opt;
-            const isMapped = compareOption === "preset" && opt !== "preset" && PRESET_COMPARE_MAP[periodPreset] === opt;
+            const isMapped = compareOption === "preset" && opt !== "preset" && !!PRESET_COMPARE_MAP[periodPreset] && PRESET_COMPARE_MAP[periodPreset] === opt;
             const cls = isSelected ? activeBtn : isMapped ? mappedBtn : inactiveBtn;
             return (
               <button
@@ -243,23 +231,6 @@ export default function PeriodFilter({ onChange }: Props) {
           <span className="text-xs text-orange-500 font-medium">
             → {PRESET_EFFECTIVE_LABEL[periodPreset]}와 비교
           </span>
-        )}
-        {compareOption === "custom" && (
-          <div className="flex items-center gap-1.5 mt-1 sm:mt-0">
-            <input
-              type="date"
-              value={compareCustomStart}
-              onChange={(e) => setCompareCustomStart(e.target.value)}
-              className={dateInputClass}
-            />
-            <span className="text-gray-400 text-sm">~</span>
-            <input
-              type="date"
-              value={compareCustomEnd}
-              onChange={(e) => setCompareCustomEnd(e.target.value)}
-              className={dateInputClass}
-            />
-          </div>
         )}
       </div>
     </div>
