@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PartnerCard from "@/components/PartnerCard";
-import type { PartnerSummary } from "@/lib/types";
+import type { PartnerSummary, PartnerBasic } from "@/lib/types";
 
 const PAGE_SIZE = 12;
 const MAX_QUICK_MATCHES = 8;
@@ -19,6 +19,8 @@ export default function PartnersPage() {
   const [days, setDays] = useState(30);
   const [page, setPage] = useState(1);
   const [quickSearch, setQuickSearch] = useState("");
+  const [allPartners, setAllPartners] = useState<PartnerBasic[]>([]);
+  const [allPartnersLoading, setAllPartnersLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -28,6 +30,16 @@ export default function PartnersPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [days]);
+
+  useEffect(() => {
+    // 매출 유무와 무관하게 전체 파트너사를 찾을 수 있어야 하므로
+    // 기간(days) 기반 목록과 별개의 엔드포인트를 사용한다
+    fetch("/api/partners/all")
+      .then((r) => r.json())
+      .then((data) => setAllPartners(data.partners ?? []))
+      .catch(console.error)
+      .finally(() => setAllPartnersLoading(false));
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -48,14 +60,10 @@ export default function PartnersPage() {
   const quickMatches = useMemo(() => {
     const q = quickSearch.trim().toLowerCase();
     if (!q) return [];
-    return partners
+    return allPartners
       .filter((p) => p.partner_name.toLowerCase().includes(q))
       .slice(0, MAX_QUICK_MATCHES);
-  }, [quickSearch, partners]);
-
-  const goToPartner = (partnerId: number) => {
-    router.push(`/partners/${partnerId}`);
-  };
+  }, [quickSearch, allPartners]);
 
   return (
     <main className="max-w-[1300px] mx-auto px-4 py-8">
@@ -184,7 +192,7 @@ export default function PartnersPage() {
 
           {quickSearch.trim() && (
             <div className="mt-2 bg-white border border-gray-200 rounded-lg overflow-hidden">
-              {loading ? (
+              {allPartnersLoading ? (
                 <p className="px-4 py-3 text-sm text-gray-400">불러오는 중...</p>
               ) : quickMatches.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-400">검색 결과가 없습니다</p>
@@ -192,7 +200,7 @@ export default function PartnersPage() {
                 quickMatches.map((p) => (
                   <button
                     key={p.partner_id}
-                    onClick={() => goToPartner(p.partner_id)}
+                    onClick={() => router.push(`/partners/${p.partner_id}`)}
                     className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
                   >
                     {p.partner_name}
