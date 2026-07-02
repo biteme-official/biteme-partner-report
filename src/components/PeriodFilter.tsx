@@ -151,7 +151,7 @@ const PRESET_COMPARE_MAP: Partial<Record<PeriodPreset, CompareOption>> = {
 };
 
 export default function PeriodFilter({ onChange }: Props) {
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("today");
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [compareOption, setCompareOption] = useState<CompareOption>("preset");
