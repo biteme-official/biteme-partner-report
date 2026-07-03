@@ -15,29 +15,54 @@ export default function PartnersPage() {
   const [tab, setTab] = useState<Tab>("list");
   const [partners, setPartners] = useState<PartnerSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [search, setSearch] = useState("");
   const [days, setDays] = useState(30);
   const [page, setPage] = useState(1);
   const [quickSearch, setQuickSearch] = useState("");
   const [allPartners, setAllPartners] = useState<PartnerBasic[]>([]);
   const [allPartnersLoading, setAllPartnersLoading] = useState(true);
+  const [allPartnersError, setAllPartnersError] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
     setLoading(true);
-    fetch(`/api/partners?days=${days}`)
-      .then((r) => r.json())
-      .then((data) => setPartners(data.partners ?? []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    setError(false);
+    fetch(`/api/partners?days=${days}`, { signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (signal.aborted) return;
+        setPartners(data.partners ?? []);
+        setLoading(false);
+      })
+      .catch((e: Error) => {
+        if (e.name === "AbortError") return;
+        console.error(e);
+        setError(true);
+        setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [days]);
 
   useEffect(() => {
     // 매출 유무와 무관하게 전체 파트너사를 찾을 수 있어야 하므로
     // 기간(days) 기반 목록과 별개의 엔드포인트를 사용한다
     fetch("/api/partners/all")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => setAllPartners(data.partners ?? []))
-      .catch(console.error)
+      .catch((e) => {
+        console.error(e);
+        setAllPartnersError(true);
+      })
       .finally(() => setAllPartnersLoading(false));
   }, []);
 
@@ -133,9 +158,13 @@ export default function PartnersPage() {
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
             </div>
+          ) : error ? (
+            <p className="text-center text-gray-400 py-20">
+              데이터를 불러올 수 없습니다
+            </p>
           ) : filtered.length === 0 ? (
             <p className="text-center text-gray-400 py-20">
-              {search ? "검색 결과가 없습니다" : "데이터를 불러올 수 없습니다"}
+              {search ? "검색 결과가 없습니다" : "표시할 파트너사가 없습니다"}
             </p>
           ) : (
             <>
@@ -190,22 +219,31 @@ export default function PartnersPage() {
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
 
-          {quickSearch.trim() && (
+          {(allPartnersLoading || quickSearch.trim()) && (
             <div className="mt-2 bg-white border border-gray-200 rounded-lg overflow-hidden">
               {allPartnersLoading ? (
                 <p className="px-4 py-3 text-sm text-gray-400">불러오는 중...</p>
+              ) : allPartnersError ? (
+                <p className="px-4 py-3 text-sm text-gray-400">데이터를 불러올 수 없습니다</p>
               ) : quickMatches.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-400">검색 결과가 없습니다</p>
               ) : (
-                quickMatches.map((p) => (
-                  <button
-                    key={p.partner_id}
-                    onClick={() => router.push(`/partners/${p.partner_id}`)}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-                  >
-                    {p.partner_name}
-                  </button>
-                ))
+                <>
+                  {quickMatches.map((p) => (
+                    <button
+                      key={p.partner_id}
+                      onClick={() => router.push(`/partners/${p.partner_id}`)}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                    >
+                      {p.partner_name}
+                    </button>
+                  ))}
+                  {quickMatches.length === MAX_QUICK_MATCHES && (
+                    <p className="px-4 py-2 text-xs text-gray-400">
+                      상위 {MAX_QUICK_MATCHES}개만 표시됩니다. 더 구체적인 이름을 입력하세요.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
