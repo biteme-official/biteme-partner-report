@@ -12,7 +12,7 @@ type Tab = "list" | "search";
 
 export default function PartnersPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("list");
+  const [tab, setTab] = useState<Tab>("search");
   const [partners, setPartners] = useState<PartnerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
