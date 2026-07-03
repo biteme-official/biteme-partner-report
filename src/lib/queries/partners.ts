@@ -13,6 +13,18 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+export function partnerAllListSQL(): string {
+  return `
+    SELECT
+      a.\`no\` AS partner_id,
+      a.company_nm AS partner_name
+    FROM wt_admin a
+    WHERE a.company_nm NOT LIKE '%바잇미%'
+      AND a.use_yn = 'y'
+    ORDER BY a.company_nm
+  `;
+}
+
 export function partnerListSQL(start: Date, end: Date): string {
   return `
     SELECT

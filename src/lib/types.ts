@@ -7,6 +7,11 @@ export interface PartnerSummary {
   total_sales: number;
 }
 
+export interface PartnerBasic {
+  partner_id: number;
+  partner_name: string;
+}
+
 export interface PartnerDetail {
   partner_id: number;
   partner_name: string;
