@@ -12,6 +12,11 @@ type Tab = "list" | "search" | "integrated";
 type IntegratedCategory = "all" | "dog" | "cat";
 type IntegratedPeriod = "7" | "30" | "90" | "custom";
 
+const INTEGRATED_SUBCATEGORIES: Record<"dog" | "cat", string[]> = {
+  dog: ["사료", "간식", "영양제", "의류/스타일", "장난감"],
+  cat: ["사료", "간식", "영양제", "모래", "화장실/위생", "스크래쳐/캣타워", "용품", "장난감", "의류/스타일"],
+};
+
 export default function PartnersPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("search");
@@ -26,9 +31,14 @@ export default function PartnersPage() {
   const [allPartnersLoading, setAllPartnersLoading] = useState(true);
   const [allPartnersError, setAllPartnersError] = useState(false);
   const [integratedCategory, setIntegratedCategory] = useState<IntegratedCategory>("all");
+  const [integratedSubCategory, setIntegratedSubCategory] = useState<string | null>(null);
   const [integratedPeriod, setIntegratedPeriod] = useState<IntegratedPeriod>("30");
   const [integratedCustomStart, setIntegratedCustomStart] = useState("");
   const [integratedCustomEnd, setIntegratedCustomEnd] = useState("");
+
+  useEffect(() => {
+    setIntegratedSubCategory(null);
+  }, [integratedCategory]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -209,6 +219,24 @@ export default function PartnersPage() {
               </div>
             )}
           </div>
+
+          {integratedCategory !== "all" && (
+            <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit no-print">
+              {INTEGRATED_SUBCATEGORIES[integratedCategory].map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setIntegratedSubCategory(sub)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    integratedSubCategory === sub
+                      ? "bg-white text-gray-900 shadow-sm font-medium"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {sub}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="max-w-xl mx-auto py-20 no-print">
             <p className="text-center text-gray-400">준비 중입니다</p>
