@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PartnerCard from "@/components/PartnerCard";
+import TabGroup from "@/components/TabGroup";
 import type { PartnerSummary, PartnerBasic } from "@/lib/types";
 
 const PAGE_SIZE = 12;
@@ -118,88 +119,51 @@ export default function PartnersPage() {
       </header>
 
       <div className="flex items-center mb-6 no-print">
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-          <button
-            onClick={() => setTab("list")}
-            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-              tab === "list"
-                ? "bg-white text-gray-900 shadow-sm font-medium"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            전체 목록
-          </button>
-          <button
-            onClick={() => setTab("search")}
-            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-              tab === "search"
-                ? "bg-white text-gray-900 shadow-sm font-medium"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            파트너사 검색
-          </button>
-        </div>
+        <TabGroup<Tab>
+          options={[
+            { value: "list", label: "전체 목록" },
+            { value: "search", label: "파트너사 검색" },
+          ]}
+          value={tab}
+          onChange={setTab}
+          buttonClassName="px-4 py-1.5"
+          wrapperClassName="w-fit"
+        />
 
         <div className="ml-4 pl-4 border-l border-gray-300">
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-            <button
-              onClick={() => setTab("integrated")}
-              className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-                tab === "integrated"
-                  ? "bg-white text-gray-900 shadow-sm font-medium"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              통합
-            </button>
-          </div>
+          <TabGroup<Tab>
+            options={[{ value: "integrated", label: "통합" }]}
+            value={tab}
+            onChange={setTab}
+            buttonClassName="px-4 py-1.5"
+            wrapperClassName="w-fit"
+          />
         </div>
       </div>
 
       {tab === "integrated" ? (
         <>
           <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-              {([
+            <TabGroup<IntegratedCategory>
+              options={[
                 { value: "all", label: "전체" },
                 { value: "dog", label: "강아지" },
                 { value: "cat", label: "고양이" },
-              ] as { value: IntegratedCategory; label: string }[]).map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setIntegratedCategory(value)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    integratedCategory === value
-                      ? "bg-white text-gray-900 shadow-sm font-medium"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+              ]}
+              value={integratedCategory}
+              onChange={setIntegratedCategory}
+            />
 
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-              {([
+            <TabGroup<IntegratedPeriod>
+              options={[
                 { value: "7", label: "7일" },
                 { value: "30", label: "30일" },
                 { value: "90", label: "90일" },
                 { value: "custom", label: "기간설정" },
-              ] as { value: IntegratedPeriod; label: string }[]).map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setIntegratedPeriod(value)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    integratedPeriod === value
-                      ? "bg-white text-gray-900 shadow-sm font-medium"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+              ]}
+              value={integratedPeriod}
+              onChange={setIntegratedPeriod}
+            />
 
             {integratedPeriod === "custom" && (
               <div className="flex items-center gap-1.5">
@@ -221,21 +185,15 @@ export default function PartnersPage() {
           </div>
 
           {integratedCategory !== "all" && (
-            <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit no-print">
-              {INTEGRATED_SUBCATEGORIES[integratedCategory].map((sub) => (
-                <button
-                  key={sub}
-                  onClick={() => setIntegratedSubCategory(sub)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    integratedSubCategory === sub
-                      ? "bg-white text-gray-900 shadow-sm font-medium"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {sub}
-                </button>
-              ))}
-            </div>
+            <TabGroup<string>
+              options={INTEGRATED_SUBCATEGORIES[integratedCategory].map((sub) => ({
+                value: sub,
+                label: sub,
+              }))}
+              value={integratedSubCategory}
+              onChange={setIntegratedSubCategory}
+              wrapperClassName="flex-wrap mb-6 w-fit no-print"
+            />
           )}
 
           <div className="max-w-xl mx-auto py-20 no-print">
@@ -252,21 +210,11 @@ export default function PartnersPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-              {[7, 30, 90].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setDays(d)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    days === d
-                      ? "bg-white text-gray-900 shadow-sm font-medium"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {d}일
-                </button>
-              ))}
-            </div>
+            <TabGroup<number>
+              options={[7, 30, 90].map((d) => ({ value: d, label: `${d}일` }))}
+              value={days}
+              onChange={setDays}
+            />
             <span className="text-sm text-gray-400 ml-auto">
               {filtered.length}개 파트너사
             </span>
