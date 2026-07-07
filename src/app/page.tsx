@@ -9,6 +9,8 @@ const PAGE_SIZE = 12;
 const MAX_QUICK_MATCHES = 8;
 
 type Tab = "list" | "search" | "integrated";
+type IntegratedCategory = "all" | "dog" | "cat";
+type IntegratedPeriod = "7" | "30" | "90" | "custom";
 
 export default function PartnersPage() {
   const router = useRouter();
@@ -23,6 +25,10 @@ export default function PartnersPage() {
   const [allPartners, setAllPartners] = useState<PartnerBasic[]>([]);
   const [allPartnersLoading, setAllPartnersLoading] = useState(true);
   const [allPartnersError, setAllPartnersError] = useState(false);
+  const [integratedCategory, setIntegratedCategory] = useState<IntegratedCategory>("all");
+  const [integratedPeriod, setIntegratedPeriod] = useState<IntegratedPeriod>("30");
+  const [integratedCustomStart, setIntegratedCustomStart] = useState("");
+  const [integratedCustomEnd, setIntegratedCustomEnd] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -142,9 +148,72 @@ export default function PartnersPage() {
       </div>
 
       {tab === "integrated" ? (
-        <div className="max-w-xl mx-auto py-20 no-print">
-          <p className="text-center text-gray-400">준비 중입니다</p>
-        </div>
+        <>
+          <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              {([
+                { value: "all", label: "전체" },
+                { value: "dog", label: "강아지" },
+                { value: "cat", label: "고양이" },
+              ] as { value: IntegratedCategory; label: string }[]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setIntegratedCategory(value)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    integratedCategory === value
+                      ? "bg-white text-gray-900 shadow-sm font-medium"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              {([
+                { value: "7", label: "7일" },
+                { value: "30", label: "30일" },
+                { value: "90", label: "90일" },
+                { value: "custom", label: "기간설정" },
+              ] as { value: IntegratedPeriod; label: string }[]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setIntegratedPeriod(value)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    integratedPeriod === value
+                      ? "bg-white text-gray-900 shadow-sm font-medium"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {integratedPeriod === "custom" && (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={integratedCustomStart}
+                  onChange={(e) => setIntegratedCustomStart(e.target.value)}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+                <span className="text-gray-400 text-sm">~</span>
+                <input
+                  type="date"
+                  value={integratedCustomEnd}
+                  onChange={(e) => setIntegratedCustomEnd(e.target.value)}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="max-w-xl mx-auto py-20 no-print">
+            <p className="text-center text-gray-400">준비 중입니다</p>
+          </div>
+        </>
       ) : tab === "list" ? (
         <>
           <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
