@@ -126,7 +126,7 @@ export default function PartnersPage() {
           ]}
           value={tab}
           onChange={setTab}
-          buttonClassName="px-4 py-1.5"
+          buttonClassName="px-4 py-1.5 text-sm"
           wrapperClassName="w-fit"
         />
 
@@ -135,7 +135,7 @@ export default function PartnersPage() {
             options={[{ value: "integrated", label: "통합" }]}
             value={tab}
             onChange={setTab}
-            buttonClassName="px-4 py-1.5"
+            buttonClassName="px-4 py-1.5 text-sm"
             wrapperClassName="w-fit"
           />
         </div>
@@ -143,7 +143,7 @@ export default function PartnersPage() {
 
       {tab === "integrated" ? (
         <>
-          <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
+          <div className="flex flex-wrap items-center gap-3 mb-2 no-print">
             <TabGroup<IntegratedCategory>
               options={[
                 { value: "all", label: "전체" },
@@ -193,6 +193,7 @@ export default function PartnersPage() {
               value={integratedSubCategory}
               onChange={setIntegratedSubCategory}
               wrapperClassName="flex-wrap mb-6 w-fit no-print"
+              buttonClassName="px-2 py-1 text-xs"
             />
           )}
 
