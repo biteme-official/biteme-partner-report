@@ -8,7 +8,7 @@ import type { PartnerSummary, PartnerBasic } from "@/lib/types";
 const PAGE_SIZE = 12;
 const MAX_QUICK_MATCHES = 8;
 
-type Tab = "list" | "search";
+type Tab = "list" | "search" | "integrated";
 
 export default function PartnersPage() {
   const router = useRouter();
@@ -101,30 +101,49 @@ export default function PartnersPage() {
         </p>
       </header>
 
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit no-print">
-        <button
-          onClick={() => setTab("list")}
-          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-            tab === "list"
-              ? "bg-white text-gray-900 shadow-sm font-medium"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          전체 목록
-        </button>
-        <button
-          onClick={() => setTab("search")}
-          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-            tab === "search"
-              ? "bg-white text-gray-900 shadow-sm font-medium"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          파트너사 검색
-        </button>
+      <div className="flex items-center mb-6 no-print">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+          <button
+            onClick={() => setTab("list")}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+              tab === "list"
+                ? "bg-white text-gray-900 shadow-sm font-medium"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            전체 목록
+          </button>
+          <button
+            onClick={() => setTab("search")}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+              tab === "search"
+                ? "bg-white text-gray-900 shadow-sm font-medium"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            파트너사 검색
+          </button>
+        </div>
+
+        <div className="ml-4 pl-4 border-l border-gray-300 flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+          <button
+            onClick={() => setTab("integrated")}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+              tab === "integrated"
+                ? "bg-white text-gray-900 shadow-sm font-medium"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            통합
+          </button>
+        </div>
       </div>
 
-      {tab === "list" ? (
+      {tab === "integrated" ? (
+        <div className="max-w-xl mx-auto py-20 no-print">
+          <p className="text-center text-gray-400">준비 중입니다</p>
+        </div>
+      ) : tab === "list" ? (
         <>
           <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
             <input
