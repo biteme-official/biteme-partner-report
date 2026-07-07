@@ -125,17 +125,19 @@ export default function PartnersPage() {
           </button>
         </div>
 
-        <div className="ml-4 pl-4 border-l border-gray-300 flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-          <button
-            onClick={() => setTab("integrated")}
-            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-              tab === "integrated"
-                ? "bg-white text-gray-900 shadow-sm font-medium"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            통합
-          </button>
+        <div className="ml-4 pl-4 border-l border-gray-300">
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => setTab("integrated")}
+              className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                tab === "integrated"
+                  ? "bg-white text-gray-900 shadow-sm font-medium"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              통합
+            </button>
+          </div>
         </div>
       </div>
 
