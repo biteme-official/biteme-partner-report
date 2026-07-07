@@ -3,12 +3,20 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PartnerCard from "@/components/PartnerCard";
+import TabGroup from "@/components/TabGroup";
 import type { PartnerSummary, PartnerBasic } from "@/lib/types";
 
 const PAGE_SIZE = 12;
 const MAX_QUICK_MATCHES = 8;
 
-type Tab = "list" | "search";
+type Tab = "list" | "search" | "integrated";
+type IntegratedCategory = "all" | "dog" | "cat";
+type IntegratedPeriod = "7" | "30" | "90" | "custom";
+
+const INTEGRATED_SUBCATEGORIES: Record<"dog" | "cat", string[]> = {
+  dog: ["사료", "간식", "영양제", "의류/스타일", "장난감"],
+  cat: ["사료", "간식", "영양제", "모래", "화장실/위생", "스크래쳐/캣타워", "용품", "장난감", "의류/스타일"],
+};
 
 export default function PartnersPage() {
   const router = useRouter();
@@ -23,6 +31,15 @@ export default function PartnersPage() {
   const [allPartners, setAllPartners] = useState<PartnerBasic[]>([]);
   const [allPartnersLoading, setAllPartnersLoading] = useState(true);
   const [allPartnersError, setAllPartnersError] = useState(false);
+  const [integratedCategory, setIntegratedCategory] = useState<IntegratedCategory>("all");
+  const [integratedSubCategory, setIntegratedSubCategory] = useState<string | null>(null);
+  const [integratedPeriod, setIntegratedPeriod] = useState<IntegratedPeriod>("30");
+  const [integratedCustomStart, setIntegratedCustomStart] = useState("");
+  const [integratedCustomEnd, setIntegratedCustomEnd] = useState("");
+
+  useEffect(() => {
+    setIntegratedSubCategory(null);
+  }, [integratedCategory]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -101,30 +118,90 @@ export default function PartnersPage() {
         </p>
       </header>
 
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit no-print">
-        <button
-          onClick={() => setTab("list")}
-          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-            tab === "list"
-              ? "bg-white text-gray-900 shadow-sm font-medium"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          전체 목록
-        </button>
-        <button
-          onClick={() => setTab("search")}
-          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-            tab === "search"
-              ? "bg-white text-gray-900 shadow-sm font-medium"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          파트너사 검색
-        </button>
+      <div className="flex items-center mb-6 no-print">
+        <TabGroup<Tab>
+          options={[
+            { value: "list", label: "전체 목록" },
+            { value: "search", label: "파트너사 검색" },
+          ]}
+          value={tab}
+          onChange={setTab}
+          buttonClassName="px-4 py-1.5 text-sm"
+          wrapperClassName="w-fit"
+        />
+
+        <div className="ml-4 pl-4 border-l border-gray-300">
+          <TabGroup<Tab>
+            options={[{ value: "integrated", label: "통합" }]}
+            value={tab}
+            onChange={setTab}
+            buttonClassName="px-4 py-1.5 text-sm"
+            wrapperClassName="w-fit"
+          />
+        </div>
       </div>
 
-      {tab === "list" ? (
+      {tab === "integrated" ? (
+        <>
+          <div className="flex flex-wrap items-center gap-3 mb-2 no-print">
+            <TabGroup<IntegratedCategory>
+              options={[
+                { value: "all", label: "전체" },
+                { value: "dog", label: "강아지" },
+                { value: "cat", label: "고양이" },
+              ]}
+              value={integratedCategory}
+              onChange={setIntegratedCategory}
+            />
+
+            <TabGroup<IntegratedPeriod>
+              options={[
+                { value: "7", label: "7일" },
+                { value: "30", label: "30일" },
+                { value: "90", label: "90일" },
+                { value: "custom", label: "기간설정" },
+              ]}
+              value={integratedPeriod}
+              onChange={setIntegratedPeriod}
+            />
+
+            {integratedPeriod === "custom" && (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={integratedCustomStart}
+                  onChange={(e) => setIntegratedCustomStart(e.target.value)}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+                <span className="text-gray-400 text-sm">~</span>
+                <input
+                  type="date"
+                  value={integratedCustomEnd}
+                  onChange={(e) => setIntegratedCustomEnd(e.target.value)}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            )}
+          </div>
+
+          {integratedCategory !== "all" && (
+            <TabGroup<string>
+              options={INTEGRATED_SUBCATEGORIES[integratedCategory].map((sub) => ({
+                value: sub,
+                label: sub,
+              }))}
+              value={integratedSubCategory}
+              onChange={setIntegratedSubCategory}
+              wrapperClassName="flex-wrap mb-6 w-fit no-print"
+              buttonClassName="px-2 py-1 text-xs"
+            />
+          )}
+
+          <div className="max-w-xl mx-auto py-20 no-print">
+            <p className="text-center text-gray-400">준비 중입니다</p>
+          </div>
+        </>
+      ) : tab === "list" ? (
         <>
           <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
             <input
@@ -134,21 +211,11 @@ export default function PartnersPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-              {[7, 30, 90].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setDays(d)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    days === d
-                      ? "bg-white text-gray-900 shadow-sm font-medium"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {d}일
-                </button>
-              ))}
-            </div>
+            <TabGroup<number>
+              options={[7, 30, 90].map((d) => ({ value: d, label: `${d}일` }))}
+              value={days}
+              onChange={setDays}
+            />
             <span className="text-sm text-gray-400 ml-auto">
               {filtered.length}개 파트너사
             </span>
