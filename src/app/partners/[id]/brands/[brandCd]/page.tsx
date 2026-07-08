@@ -8,11 +8,10 @@ import InsightSection from "@/components/InsightSection";
 import BuyerAnalysis from "@/components/BuyerAnalysis";
 import PeriodFilter, { type DateRange, type PeriodPreset } from "@/components/PeriodFilter";
 import type {
-  PartnerDetail,
+  BrandDetail,
   DailySales,
   HourlySales,
   ProductSales,
-  BrandInfo,
   MonthlySales,
   GrowthProduct,
   ReturnRate,
@@ -21,11 +20,10 @@ import type {
 } from "@/lib/types";
 
 interface DetailData {
-  detail: PartnerDetail;
+  detail: BrandDetail;
   sales: DailySales[] | HourlySales[];
   granularity: "daily" | "hourly";
   products: ProductSales[];
-  brands: BrandInfo[];
 }
 
 interface InsightData {
@@ -41,12 +39,12 @@ function toApiDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export default function PartnerDetailPage({
+export default function BrandDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; brandCd: string }>;
 }) {
-  const { id } = use(params);
+  const { id, brandCd } = use(params);
   const [data, setData] = useState<DetailData | null>(null);
   const [compareData, setCompareData] = useState<Pick<DetailData, "sales"> | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
@@ -75,19 +73,20 @@ export default function PartnerDetailPage({
     const granularityParam = isHourly ? "&granularity=hourly" : "";
     const startStr = toApiDate(main.start);
     const endStr = toApiDate(main.end);
-    const mainUrl = `/api/partners/${id}?startDate=${startStr}&endDate=${endStr}${granularityParam}`;
+    const brandPath = `/api/partners/${id}/brands/${encodeURIComponent(brandCd)}`;
+    const mainUrl = `${brandPath}?startDate=${startStr}&endDate=${endStr}${granularityParam}`;
 
     const cmpPromise: Promise<DetailData | null> = compareDateRange
       ? (() => {
           const cStart = toApiDate(compareDateRange.start);
           const cEnd = toApiDate(compareDateRange.end);
-          return safeFetch(`/api/partners/${id}?startDate=${cStart}&endDate=${cEnd}${granularityParam}`) as Promise<DetailData>;
+          return safeFetch(`${brandPath}?startDate=${cStart}&endDate=${cEnd}${granularityParam}`) as Promise<DetailData>;
         })()
       : Promise.resolve(null);
 
     Promise.all([
       safeFetch(mainUrl) as Promise<DetailData>,
-      safeFetch(`/api/partners/${id}/insights`).catch(() => null) as Promise<InsightData | null>,
+      safeFetch(`${brandPath}/insights`).catch(() => null) as Promise<InsightData | null>,
       cmpPromise,
     ])
       .then(([detailData, insightData, cmpData]) => {
@@ -105,9 +104,9 @@ export default function PartnerDetailPage({
       });
 
     return () => controller.abort();
-  }, [id, filter]);
+  }, [id, brandCd, filter]);
 
-  const { detail, sales = [], products = [], brands = [] } = data ?? {};
+  const { detail, sales = [], products = [] } = data ?? {};
 
   const totalSales = sales.reduce((s, d) => s + Number(d.total_sales), 0);
   const totalOrders = sales.reduce((s, d) => s + Number(d.order_count), 0);
@@ -120,10 +119,14 @@ export default function PartnerDetailPage({
 
   return (
     <main className="max-w-[224.64rem] mx-auto px-4 py-8">
-      {/* 목록 링크 */}
+      {/* 목록/파트너 링크 */}
       <div className="flex items-center gap-3 mb-4 no-print">
         <Link href="/" className="text-blue-500 hover:text-blue-700 text-sm shrink-0">
           &larr; 목록
+        </Link>
+        <span className="text-gray-300">/</span>
+        <Link href={`/partners/${id}`} className="text-blue-500 hover:text-blue-700 text-sm shrink-0">
+          {detail?.partner_name ?? "파트너사"}
         </Link>
       </div>
 
@@ -141,45 +144,21 @@ export default function PartnerDetailPage({
 
       {/* 데이터 없음 */}
       {!loading && !detail && (
-        <p className="text-center text-gray-400 py-20">파트너사를 찾을 수 없습니다</p>
+        <p className="text-center text-gray-400 py-20">브랜드를 찾을 수 없습니다</p>
       )}
 
       {/* 메인 콘텐츠 */}
       {!loading && detail && (
         <>
           <header className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">{detail.partner_name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{detail.brand_nm}</h1>
             <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
-              <span>
-                입점일:{" "}
-                {detail.joined_date
-                  ? new Date(detail.joined_date).toLocaleDateString("ko-KR")
-                  : "-"}
-              </span>
-              <span>브랜드: {detail.brand_count}개</span>
+              <span>파트너사: {detail.partner_name}</span>
               <span>
                 상품: {detail.active_product_count}/{detail.total_product_count}개 (활성/전체)
               </span>
             </div>
           </header>
-
-          {brands.length > 0 && (
-            <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">취급 브랜드</h2>
-              <div className="flex flex-wrap gap-2">
-                {brands.map((b) => (
-                  <Link
-                    key={b.brand_cd}
-                    href={`/partners/${id}/brands/${encodeURIComponent(b.brand_cd)}`}
-                    className="bg-gray-100 text-gray-700 text-sm px-3 py-1.5 rounded-full hover:bg-blue-100 hover:text-blue-700 transition-colors"
-                  >
-                    {b.brand_nm}{" "}
-                    <span className="text-gray-400">({b.active_count})</span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
 
           <div className="space-y-6">
             <SalesOverview
