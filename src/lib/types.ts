@@ -53,6 +53,15 @@ export interface BrandInfo {
   active_count: number;
 }
 
+export interface BrandDetail {
+  partner_id: number;
+  partner_name: string;
+  brand_cd: string;
+  brand_nm: string;
+  total_product_count: number;
+  active_product_count: number;
+}
+
 export interface MonthlySales {
   month: string;
   order_count: number;
