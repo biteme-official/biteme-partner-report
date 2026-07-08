@@ -13,12 +13,23 @@ function formatCurrency(n: number): string {
   return formatNumber(n);
 }
 
-export default function PartnerCard({ partner }: { partner: PartnerSummary }) {
+export default function PartnerCard({
+  partner,
+  salesRank,
+}: {
+  partner: PartnerSummary;
+  salesRank?: number;
+}) {
   return (
     <Link
       href={`/partners/${partner.partner_id}`}
-      className="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
+      className="relative block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
     >
+      {salesRank !== undefined && (
+        <span className="absolute -top-2 -left-2 flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold shadow">
+          {salesRank}
+        </span>
+      )}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-900 truncate">
           {partner.partner_name}

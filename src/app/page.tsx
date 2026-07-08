@@ -91,6 +91,12 @@ export default function PartnersPage() {
     p.partner_name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const salesRankMap = useMemo(() => {
+    const map = new Map<number, number>();
+    partners.forEach((p, i) => map.set(p.partner_id, i + 1));
+    return map;
+  }, [partners]);
+
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -237,7 +243,11 @@ export default function PartnersPage() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {paginated.map((p) => (
-                  <PartnerCard key={p.partner_id} partner={p} />
+                  <PartnerCard
+                    key={p.partner_id}
+                    partner={p}
+                    salesRank={salesRankMap.get(p.partner_id)}
+                  />
                 ))}
               </div>
 
