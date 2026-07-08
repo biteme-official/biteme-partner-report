@@ -14,7 +14,7 @@ type IntegratedCategory = "all" | "dog" | "cat";
 type IntegratedPeriod = "7" | "30" | "90" | "custom";
 
 const INTEGRATED_SUBCATEGORIES: Record<"dog" | "cat", string[]> = {
-  dog: ["사료", "간식", "영양제", "의류/스타일", "장난감"],
+  dog: ["사료", "간식", "영양제", "의류/스타일", "용품", "장난감"],
   cat: ["사료", "간식", "영양제", "모래", "화장실/위생", "스크래쳐/캣타워", "용품", "장난감", "의류/스타일"],
 };
 
