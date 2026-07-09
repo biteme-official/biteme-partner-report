@@ -27,6 +27,8 @@ export function brandAllListSQL(): string {
     LEFT JOIN wt_code2 c2 ON p.brand_cd = c2.code_cd2
     WHERE a.company_nm NOT LIKE '%바잇미%'
       AND a.use_yn = 'y'
+      AND p.display_yn = 'y'
+      AND p.del_yn = 'n'
     GROUP BY a.\`no\`, a.company_nm, p.brand_cd
     ORDER BY brand_nm
   `;
