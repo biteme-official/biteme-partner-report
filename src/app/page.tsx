@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PartnerCard from "@/components/PartnerCard";
 import TabGroup from "@/components/TabGroup";
+import QuickSearchResults from "@/components/QuickSearchResults";
 import type { PartnerSummary, PartnerBasic, BrandBasic } from "@/lib/types";
 
 const PAGE_SIZE = 12;
@@ -34,8 +35,9 @@ export default function PartnersPage() {
   const [allPartnersLoading, setAllPartnersLoading] = useState(true);
   const [allPartnersError, setAllPartnersError] = useState(false);
   const [allBrands, setAllBrands] = useState<BrandBasic[]>([]);
-  const [allBrandsLoading, setAllBrandsLoading] = useState(true);
+  const [allBrandsLoading, setAllBrandsLoading] = useState(false);
   const [allBrandsError, setAllBrandsError] = useState(false);
+  const [allBrandsFetched, setAllBrandsFetched] = useState(false);
   const [integratedCategory, setIntegratedCategory] = useState<IntegratedCategory>("all");
   const [integratedSubCategory, setIntegratedSubCategory] = useState<string | null>(null);
   const [integratedPeriod, setIntegratedPeriod] = useState<IntegratedPeriod>("30");
@@ -89,6 +91,10 @@ export default function PartnersPage() {
   }, []);
 
   useEffect(() => {
+    // 브랜드 검색 모드로 전환될 때만 불러온다 (파트너 검색만 쓰는 경우 불필요한 호출 방지)
+    if (searchMode !== "brand" || allBrandsFetched) return;
+
+    setAllBrandsLoading(true);
     fetch("/api/brands/all")
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -99,8 +105,11 @@ export default function PartnersPage() {
         console.error(e);
         setAllBrandsError(true);
       })
-      .finally(() => setAllBrandsLoading(false));
-  }, []);
+      .finally(() => {
+        setAllBrandsLoading(false);
+        setAllBrandsFetched(true);
+      });
+  }, [searchMode, allBrandsFetched]);
 
   useEffect(() => {
     setQuickSearch("");
@@ -343,62 +352,40 @@ export default function PartnersPage() {
 
           {searchMode === "partner" ? (
             (allPartnersLoading || quickSearch.trim()) && (
-              <div className="mt-2 bg-white border border-gray-200 rounded-lg overflow-hidden">
-                {allPartnersLoading ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">불러오는 중...</p>
-                ) : allPartnersError ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">데이터를 불러올 수 없습니다</p>
-                ) : quickMatches.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">검색 결과가 없습니다</p>
-                ) : (
-                  <>
-                    {quickMatches.map((p) => (
-                      <button
-                        key={p.partner_id}
-                        onClick={() => router.push(`/partners/${p.partner_id}`)}
-                        className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-                      >
-                        {p.partner_name}
-                      </button>
-                    ))}
-                    {quickMatches.length === MAX_QUICK_MATCHES && (
-                      <p className="px-4 py-2 text-xs text-gray-400">
-                        상위 {MAX_QUICK_MATCHES}개만 표시됩니다. 더 구체적인 이름을 입력하세요.
-                      </p>
-                    )}
-                  </>
+              <QuickSearchResults
+                loading={allPartnersLoading}
+                error={allPartnersError}
+                items={quickMatches}
+                maxMatches={MAX_QUICK_MATCHES}
+                renderItem={(p) => (
+                  <button
+                    key={p.partner_id}
+                    onClick={() => router.push(`/partners/${p.partner_id}`)}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                  >
+                    {p.partner_name}
+                  </button>
                 )}
-              </div>
+              />
             )
           ) : (
             (allBrandsLoading || quickSearch.trim()) && (
-              <div className="mt-2 bg-white border border-gray-200 rounded-lg overflow-hidden">
-                {allBrandsLoading ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">불러오는 중...</p>
-                ) : allBrandsError ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">데이터를 불러올 수 없습니다</p>
-                ) : brandQuickMatches.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">검색 결과가 없습니다</p>
-                ) : (
-                  <>
-                    {brandQuickMatches.map((b) => (
-                      <button
-                        key={`${b.partner_id}-${b.brand_cd}`}
-                        onClick={() => router.push(`/partners/${b.partner_id}/brands/${b.brand_cd}`)}
-                        className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-                      >
-                        <span className="text-gray-900">{b.brand_nm}</span>
-                        <span className="text-gray-400 ml-2 text-xs">{b.partner_name}</span>
-                      </button>
-                    ))}
-                    {brandQuickMatches.length === MAX_QUICK_MATCHES && (
-                      <p className="px-4 py-2 text-xs text-gray-400">
-                        상위 {MAX_QUICK_MATCHES}개만 표시됩니다. 더 구체적인 이름을 입력하세요.
-                      </p>
-                    )}
-                  </>
+              <QuickSearchResults
+                loading={allBrandsLoading}
+                error={allBrandsError}
+                items={brandQuickMatches}
+                maxMatches={MAX_QUICK_MATCHES}
+                renderItem={(b) => (
+                  <button
+                    key={`${b.partner_id}-${b.brand_cd}`}
+                    onClick={() => router.push(`/partners/${b.partner_id}/brands/${b.brand_cd}`)}
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                  >
+                    <span className="text-gray-900">{b.brand_nm}</span>
+                    <span className="text-gray-400 ml-2 text-xs">{b.partner_name}</span>
+                  </button>
                 )}
-              </div>
+              />
             )
           )}
         </div>
