@@ -12,6 +12,13 @@ export interface PartnerBasic {
   partner_name: string;
 }
 
+export interface BrandBasic {
+  partner_id: number;
+  partner_name: string;
+  brand_cd: string;
+  brand_nm: string;
+}
+
 export interface PartnerDetail {
   partner_id: number;
   partner_name: string;

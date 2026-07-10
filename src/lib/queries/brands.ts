@@ -15,6 +15,23 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+export function brandAllListSQL(): string {
+  return `
+    SELECT
+      a.\`no\` AS partner_id,
+      a.company_nm AS partner_name,
+      p.brand_cd AS brand_cd,
+      IFNULL(MAX(c2.code_nm2), p.brand_cd) AS brand_nm
+    FROM wt_product p
+    JOIN wt_admin a ON a.\`no\` = p.supplier
+    LEFT JOIN wt_code2 c2 ON p.brand_cd = c2.code_cd2
+    WHERE a.company_nm NOT LIKE '%바잇미%'
+      AND a.use_yn = 'y'
+    GROUP BY a.\`no\`, a.company_nm, p.brand_cd
+    ORDER BY brand_nm
+  `;
+}
+
 export function brandDetailSQL(partnerId: string, brandCd: string): string {
   const brand = mysql.escape(brandCd);
   return `
