@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { integratedBrandListSQL } from "@/lib/queries/integrated";
+import { integratedBrandListSQL, subCategoriesFor } from "@/lib/queries/integrated";
 import type { IntegratedBrandSummary } from "@/lib/types";
 
 const PERIOD_DAYS = ["7", "30", "90"];
@@ -11,6 +11,13 @@ export async function GET(req: NextRequest) {
   const species = speciesParam === "dog" || speciesParam === "cat" ? speciesParam : "all";
   const subCategory = params.get("subCategory");
   const period = params.get("period") || "30";
+
+  if (species !== "all" && subCategory && !subCategoriesFor(species).includes(subCategory)) {
+    return NextResponse.json(
+      { error: `invalid subCategory "${subCategory}" for species "${species}"` },
+      { status: 400 }
+    );
+  }
 
   let start: Date;
   let end: Date;
@@ -24,8 +31,8 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
-    start = new Date(`${startParam} 00:00:00`);
-    end = new Date(`${endParam} 23:59:59`);
+    start = new Date(`${startParam}T00:00:00`);
+    end = new Date(`${endParam}T23:59:59`);
   } else {
     const days = Number(PERIOD_DAYS.includes(period) ? period : "30");
     end = new Date();

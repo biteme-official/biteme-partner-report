@@ -40,10 +40,16 @@ const CATEGORY_CODES: Record<IntegratedSpecies, Record<string, string[]>> = {
   },
 };
 
+export function subCategoriesFor(species: IntegratedSpecies): string[] {
+  return Object.keys(CATEGORY_CODES[species]);
+}
+
 function categoryCodesFor(species: IntegratedSpecies, subCategory: string | null): string[] {
   const bySub = CATEGORY_CODES[species];
-  if (subCategory && bySub[subCategory]) return bySub[subCategory];
-  return Object.values(bySub).flat();
+  if (!subCategory) return Object.values(bySub).flat();
+  const codes = bySub[subCategory];
+  if (!codes) throw new Error(`Unknown subCategory "${subCategory}" for species "${species}"`);
+  return codes;
 }
 
 export function integratedBrandListSQL(
