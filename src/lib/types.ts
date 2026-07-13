@@ -119,3 +119,12 @@ export interface ReturnRate {
   total_count: number;
   return_rate: number | null;
 }
+
+export interface IntegratedBrandSummary {
+  partner_id: number;
+  partner_name: string;
+  brand_cd: string;
+  brand_nm: string;
+  order_count: number;
+  total_sales: number;
+}

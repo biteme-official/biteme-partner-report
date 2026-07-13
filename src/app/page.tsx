@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PartnerCard from "@/components/PartnerCard";
+import IntegratedBrandCard from "@/components/IntegratedBrandCard";
 import TabGroup from "@/components/TabGroup";
 import QuickSearchResults from "@/components/QuickSearchResults";
-import type { PartnerSummary, PartnerBasic, BrandBasic } from "@/lib/types";
+import type { PartnerSummary, PartnerBasic, BrandBasic, IntegratedBrandSummary } from "@/lib/types";
 
 const PAGE_SIZE = 12;
 const MAX_QUICK_MATCHES = 8;
@@ -43,10 +44,56 @@ export default function PartnersPage() {
   const [integratedPeriod, setIntegratedPeriod] = useState<IntegratedPeriod>("30");
   const [integratedCustomStart, setIntegratedCustomStart] = useState("");
   const [integratedCustomEnd, setIntegratedCustomEnd] = useState("");
+  const [integratedBrands, setIntegratedBrands] = useState<IntegratedBrandSummary[]>([]);
+  const [integratedLoading, setIntegratedLoading] = useState(true);
+  const [integratedError, setIntegratedError] = useState(false);
 
   useEffect(() => {
     setIntegratedSubCategory(null);
   }, [integratedCategory]);
+
+  useEffect(() => {
+    if (tab !== "integrated") return;
+
+    // 기간설정 모드에서는 시작/종료일을 모두 고를 때까지 조회하지 않는다
+    if (integratedPeriod === "custom" && (!integratedCustomStart || !integratedCustomEnd)) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    const url = new URLSearchParams({
+      species: integratedCategory,
+      period: integratedPeriod,
+    });
+    if (integratedSubCategory) url.set("subCategory", integratedSubCategory);
+    if (integratedPeriod === "custom") {
+      url.set("start", integratedCustomStart);
+      url.set("end", integratedCustomEnd);
+    }
+
+    setIntegratedLoading(true);
+    setIntegratedError(false);
+    fetch(`/api/integrated?${url.toString()}`, { signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (signal.aborted) return;
+        setIntegratedBrands(data.brands ?? []);
+        setIntegratedLoading(false);
+      })
+      .catch((e: Error) => {
+        if (e.name === "AbortError") return;
+        console.error(e);
+        setIntegratedError(true);
+        setIntegratedLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [tab, integratedCategory, integratedSubCategory, integratedPeriod, integratedCustomStart, integratedCustomEnd]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -243,9 +290,29 @@ export default function PartnersPage() {
             />
           )}
 
-          <div className="max-w-xl mx-auto py-20 no-print">
-            <p className="text-center text-gray-400">준비 중입니다</p>
-          </div>
+          {integratedLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+            </div>
+          ) : integratedError ? (
+            <p className="text-center text-gray-400 py-20">
+              데이터를 불러올 수 없습니다
+            </p>
+          ) : integratedBrands.length === 0 ? (
+            <p className="text-center text-gray-400 py-20">
+              표시할 브랜드가 없습니다
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {integratedBrands.map((b, i) => (
+                <IntegratedBrandCard
+                  key={`${b.partner_id}-${b.brand_cd}`}
+                  brand={b}
+                  salesRank={i + 1}
+                />
+              ))}
+            </div>
+          )}
         </>
       ) : tab === "list" ? (
         <>
