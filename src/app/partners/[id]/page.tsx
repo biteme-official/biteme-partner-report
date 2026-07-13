@@ -18,6 +18,7 @@ import type {
   ReturnRate,
   BuyerTypeSummary,
   BuyerMonthly,
+  DateRangeStr,
 } from "@/lib/types";
 
 interface DetailData {
@@ -33,6 +34,7 @@ interface InsightData {
   growth: GrowthProduct[];
   returnRate: ReturnRate | null;
   buyerType: BuyerTypeSummary[];
+  buyerTypePeriod: DateRangeStr;
   buyerMonthly: BuyerMonthly[];
 }
 
@@ -199,6 +201,7 @@ export default function PartnerDetailPage({
             {insights?.buyerType && insights.buyerType.length > 0 && (
               <BuyerAnalysis
                 summary={insights.buyerType}
+                period={insights.buyerTypePeriod}
                 monthly={insights.buyerMonthly}
               />
             )}

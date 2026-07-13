@@ -8,6 +8,7 @@ import {
   brandBuyerMonthlySQL,
 } from "@/lib/queries/brands";
 import type { MonthlySales, GrowthProduct, ReturnRate, BuyerTypeSummary, BuyerMonthly } from "@/lib/types";
+import { toDateStr } from "@/lib/date";
 
 export async function GET(
   req: NextRequest,
@@ -32,6 +33,7 @@ export async function GET(
       monthly, growth,
       returnRate: returnRate[0] ?? null,
       buyerType,
+      buyerTypePeriod: { start: toDateStr(start), end: toDateStr(end) },
       buyerMonthly,
     });
   } catch (e) {

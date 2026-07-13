@@ -9,6 +9,7 @@ import {
   partnerBuyerMonthlySQL,
 } from "@/lib/queries/insights";
 import type { MonthlySales, WeeklySales, GrowthProduct, ReturnRate, BuyerTypeSummary, BuyerMonthly } from "@/lib/types";
+import { toDateStr } from "@/lib/date";
 
 export async function GET(
   req: NextRequest,
@@ -34,6 +35,7 @@ export async function GET(
       monthly, weekly, growth,
       returnRate: returnRate[0] ?? null,
       buyerType,
+      buyerTypePeriod: { start: toDateStr(start), end: toDateStr(end) },
       buyerMonthly,
     });
   } catch (e) {
