@@ -109,6 +109,11 @@ export interface BuyerMonthly {
   total_sales: number;
 }
 
+export interface DateRangeStr {
+  start: string;
+  end: string;
+}
+
 export interface ReturnRate {
   return_count: number;
   total_count: number;

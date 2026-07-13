@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import type { BuyerTypeSummary, BuyerMonthly } from "@/lib/types";
+import type { BuyerTypeSummary, BuyerMonthly, DateRangeStr } from "@/lib/types";
 
 function formatCurrency(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -20,10 +20,11 @@ function formatCurrency(n: number): string {
 
 interface Props {
   summary: BuyerTypeSummary[];
+  period: DateRangeStr;
   monthly: BuyerMonthly[];
 }
 
-export default function BuyerAnalysis({ summary, monthly }: Props) {
+export default function BuyerAnalysis({ summary, period, monthly }: Props) {
   const newData = summary.find((s) => s.buyer_type === "new");
   const repeatData = summary.find((s) => s.buyer_type === "repeat");
   const totalBuyers =
@@ -56,9 +57,14 @@ export default function BuyerAnalysis({ summary, monthly }: Props) {
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">
-        신규 / 재구매 분석
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">
+          신규 / 재구매 분석
+        </h2>
+        <span className="text-xs text-gray-400">
+          {period.start}~{period.end} 기준
+        </span>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">

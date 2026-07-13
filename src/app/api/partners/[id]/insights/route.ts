@@ -10,6 +10,11 @@ import {
 } from "@/lib/queries/insights";
 import type { MonthlySales, WeeklySales, GrowthProduct, ReturnRate, BuyerTypeSummary, BuyerMonthly } from "@/lib/types";
 
+function toDateStr(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,6 +39,7 @@ export async function GET(
       monthly, weekly, growth,
       returnRate: returnRate[0] ?? null,
       buyerType,
+      buyerTypePeriod: { start: toDateStr(start), end: toDateStr(end) },
       buyerMonthly,
     });
   } catch (e) {
