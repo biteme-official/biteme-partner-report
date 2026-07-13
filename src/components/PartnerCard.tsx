@@ -2,16 +2,7 @@
 
 import Link from "next/link";
 import type { PartnerSummary } from "@/lib/types";
-
-function formatNumber(n: number): string {
-  return n.toLocaleString("ko-KR");
-}
-
-function formatCurrency(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return formatNumber(n);
-}
+import { formatNumber, formatCurrency } from "@/lib/format";
 
 export default function PartnerCard({
   partner,

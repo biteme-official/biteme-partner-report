@@ -47,10 +47,15 @@ export default function PartnersPage() {
   const [integratedBrands, setIntegratedBrands] = useState<IntegratedBrandSummary[]>([]);
   const [integratedLoading, setIntegratedLoading] = useState(true);
   const [integratedError, setIntegratedError] = useState(false);
+  const [integratedPage, setIntegratedPage] = useState(1);
 
   useEffect(() => {
     setIntegratedSubCategory(null);
   }, [integratedCategory]);
+
+  useEffect(() => {
+    setIntegratedPage(1);
+  }, [integratedCategory, integratedSubCategory, integratedPeriod, integratedCustomStart, integratedCustomEnd]);
 
   useEffect(() => {
     if (tab !== "integrated") return;
@@ -184,6 +189,24 @@ export default function PartnersPage() {
   const groupEnd = Math.min(totalPages, groupStart + PAGE_WINDOW - 1);
   const pageNumbers = Array.from({ length: groupEnd - groupStart + 1 }, (_, i) => groupStart + i);
 
+  const integratedRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+    integratedBrands.forEach((b, i) => map.set(`${b.partner_id}-${b.brand_cd}`, i + 1));
+    return map;
+  }, [integratedBrands]);
+
+  const integratedTotalPages = Math.ceil(integratedBrands.length / PAGE_SIZE);
+  const integratedPaginated = integratedBrands.slice(
+    (integratedPage - 1) * PAGE_SIZE,
+    integratedPage * PAGE_SIZE
+  );
+  const integratedGroupStart = Math.floor((integratedPage - 1) / PAGE_WINDOW) * PAGE_WINDOW + 1;
+  const integratedGroupEnd = Math.min(integratedTotalPages, integratedGroupStart + PAGE_WINDOW - 1);
+  const integratedPageNumbers = Array.from(
+    { length: integratedGroupEnd - integratedGroupStart + 1 },
+    (_, i) => integratedGroupStart + i
+  );
+
   const quickMatches = useMemo(() => {
     const q = quickSearch.trim().toLowerCase();
     if (!q) return [];
@@ -303,15 +326,49 @@ export default function PartnersPage() {
               표시할 브랜드가 없습니다
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {integratedBrands.map((b, i) => (
-                <IntegratedBrandCard
-                  key={`${b.partner_id}-${b.brand_cd}`}
-                  brand={b}
-                  salesRank={i + 1}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {integratedPaginated.map((b) => (
+                  <IntegratedBrandCard
+                    key={`${b.partner_id}-${b.brand_cd}`}
+                    brand={b}
+                    salesRank={integratedRankMap.get(`${b.partner_id}-${b.brand_cd}`)}
+                  />
+                ))}
+              </div>
+
+              {integratedTotalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-8 no-print">
+                  <button
+                    onClick={() => { setIntegratedPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    disabled={integratedPage === 1}
+                    className="px-3 py-1.5 text-sm rounded-md border border-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                  >
+                    이전
+                  </button>
+                  {integratedPageNumbers.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => { setIntegratedPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                        integratedPage === p
+                          ? "bg-blue-500 text-white border-blue-500 font-medium"
+                          : "border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => { setIntegratedPage((p) => Math.min(integratedTotalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    disabled={integratedPage === integratedTotalPages}
+                    className="px-3 py-1.5 text-sm rounded-md border border-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                  >
+                    다음
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       ) : tab === "list" ? (

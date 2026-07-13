@@ -12,11 +12,19 @@ export async function GET(req: NextRequest) {
   const subCategory = params.get("subCategory");
   const period = params.get("period") || "30";
 
-  if (species !== "all" && subCategory && !subCategoriesFor(species).includes(subCategory)) {
-    return NextResponse.json(
-      { error: `invalid subCategory "${subCategory}" for species "${species}"` },
-      { status: 400 }
-    );
+  if (subCategory) {
+    if (species === "all") {
+      return NextResponse.json(
+        { error: 'subCategory is not applicable when species="all"' },
+        { status: 400 }
+      );
+    }
+    if (!subCategoriesFor(species).includes(subCategory)) {
+      return NextResponse.json(
+        { error: `invalid subCategory "${subCategory}" for species "${species}"` },
+        { status: 400 }
+      );
+    }
   }
 
   let start: Date;
@@ -33,6 +41,12 @@ export async function GET(req: NextRequest) {
     }
     start = new Date(`${startParam}T00:00:00`);
     end = new Date(`${endParam}T23:59:59`);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return NextResponse.json(
+        { error: "start, end must be valid dates (YYYY-MM-DD)" },
+        { status: 400 }
+      );
+    }
   } else {
     const days = Number(PERIOD_DAYS.includes(period) ? period : "30");
     end = new Date();
