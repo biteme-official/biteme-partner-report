@@ -8,11 +8,7 @@ import {
   brandBuyerMonthlySQL,
 } from "@/lib/queries/brands";
 import type { MonthlySales, GrowthProduct, ReturnRate, BuyerTypeSummary, BuyerMonthly } from "@/lib/types";
-
-function toDateStr(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+import { toDateStr } from "@/lib/date";
 
 export async function GET(
   req: NextRequest,
