@@ -7,8 +7,9 @@
 - Stack: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 + Recharts
 - 배포: Vercel — GitHub 연동 자동 배포 (PR → Preview, 머지 → Production)
 - Production: https://biteme-partner-report.vercel.app
-- Maintainer: @bmahsang (main + 배포 권한 독점)
-- Developer: platform팀 (Write 권한)
+- Admin: @bmahsang, @bmhayoung (배포 + Ruleset 관리 권한)
+- Maintainer: @bmyoujin (PR 리뷰/승인 + master 머지 권한)
+- Developer: @bmkyuri, @bmtnqls021 (Write 권한, PR 생성)
 
 
 ## 절대 금지
@@ -87,15 +88,19 @@
 ### 4. Maintainer에게 리뷰 요청 자동 발송
 
 
-## Maintainer 전용 작업 (Developer는 거부)
+## 권한별 작업 범위
 
-- PR 머지 (gh pr merge)
-- Production 배포 (vercel --prod 등)
-- Branch Protection 변경
-- 다른 사람 PR Approve
+### Maintainer 전용 (@bmyoujin)
+- PR 리뷰 및 Approve
+- PR 머지 (gh pr merge) — Ruleset bypass 권한 보유
 - Release 생성
 
-→ Developer 요청 시 거부, @bmahsang에게 요청하도록 안내
+### Admin 전용 (@bmahsang, @bmhayoung)
+- Production 배포 (vercel --prod 등)
+- Ruleset / Branch Protection 변경
+- 리포지토리 설정 변경
+
+→ Developer 요청 시 거부, Maintainer(@bmyoujin) 또는 Admin(@bmahsang)에게 요청하도록 안내
 
 
 ## 기획서/문서 정리
@@ -132,6 +137,37 @@
 3. 모든 변경사항 가시화 (이슈 → 브랜치 → Draft PR → 코드 → Ready PR)
 4. 충돌 가능성 발견 시 항상 보고
 
+
+## GitHub Ruleset 설정 (master-protection)
+
+master 브랜치에 적용된 Ruleset 규칙:
+
+| 항목 | 설정값 | 설명 |
+|------|--------|------|
+| required_approving_review_count | 1 | PR 머지에 최소 1명 승인 필요 |
+| dismiss_stale_reviews_on_push | true | 새 커밋 푸시 시 기존 승인 해제 |
+| require_last_push_approval | true | 마지막 푸시 이후 본인 외 승인 필요 |
+| non_fast_forward | 적용 | force push 차단 |
+| bypass | Maintain 역할만 | Maintainer만 규칙 bypass 가능 |
+
+### Ruleset bypass actor_id 참고 (GitHub 미문서화)
+
+GitHub Rulesets API에서 `RepositoryRole` 타입의 `actor_id`는 공식 문서에 기재되어 있지 않음.
+실측 확인한 매핑:
+
+| actor_id | repositoryRoleName |
+|----------|--------------------|
+| 2 | maintain |
+| 4 | write |
+| 5 | admin |
+
+변경 시 반드시 GraphQL API의 `repositoryRoleName` 필드로 검증할 것.
+
+### 워크플로 구조
+
+```
+Developer(Write) → PR 생성 → Maintainer(Maintain) 리뷰/승인 → 머지 → Vercel 자동 배포
+```
 
 ---
 
