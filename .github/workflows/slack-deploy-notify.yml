@@ -3,6 +3,7 @@ name: Slack Deploy Notify
 on:
   push:
     branches: [master]
+  workflow_dispatch:
 
 jobs:
   notify:
@@ -13,11 +14,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const commits = ${{ toJSON(github.event.commits) }};
+            const commits = ${{ toJSON(github.event.commits) }} || [];
             const prNumbers = new Set();
 
             for (const commit of commits) {
-              const match = commit.message.match(/\(#(\d+)\)/);
+              const match = commit.message.match(/Merge pull request #(\d+)/) || commit.message.match(/\(#(\d+)\)/);
               if (match) prNumbers.add(match[1]);
             }
 
@@ -63,45 +64,36 @@ jobs:
           DEPLOYER: ${{ steps.pr.outputs.deployer }}
           REPO: ${{ steps.pr.outputs.repo }}
         run: |
-          CHANGE_LINES=""
-          for row in $(echo "$CHANGES" | jq -r '.[] | @base64'); do
-            _jq() { echo "$row" | base64 --decode | jq -r "$1"; }
-            NUM=$(_jq '.number')
-            TITLE=$(_jq '.title')
-            AUTHOR=$(_jq '.author')
-            if [ "$NUM" != "null" ]; then
-              CHANGE_LINES="${CHANGE_LINES}• #${NUM} ${TITLE} (@${AUTHOR})\n"
-            else
-              CHANGE_LINES="${CHANGE_LINES}• ${TITLE} (@${AUTHOR})\n"
-            fi
-          done
+          CHANGE_TEXT=$(echo "$CHANGES" | jq -r '
+            map(
+              if .number != null then "• #\(.number) \(.title) (@\(.author))"
+              else "• \(.title) (@\(.author))"
+              end
+            ) | join("\n")
+          ')
 
-          PAYLOAD=$(cat <<EOF
-          {
-            "attachments": [
-              {
-                "color": "#DC3545",
-                "blocks": [
-                  {
-                    "type": "header",
-                    "text": { "type": "plain_text", "text": "🚀 Production 배포 — ${REPO}" }
-                  },
-                  { "type": "divider" },
-                  {
-                    "type": "section",
-                    "text": { "type": "mrkdwn", "text": "*변경 내역:*\n$(echo -e "$CHANGE_LINES")" }
-                  },
-                  {
-                    "type": "context",
-                    "elements": [
-                      { "type": "mrkdwn", "text": "배포자: *@${DEPLOYER}*  |  <https://github.com/${GITHUB_REPOSITORY}|GitHub>" }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
-          )
+          PAYLOAD=$(jq -n \
+            --arg repo "$REPO" \
+            --arg changes "$CHANGE_TEXT" \
+            --arg deployer "$DEPLOYER" \
+            --arg repo_url "https://github.com/${GITHUB_REPOSITORY}" \
+            '{
+              attachments: [
+                {
+                  color: "#DC3545",
+                  blocks: [
+                    { type: "header", text: { type: "plain_text", text: ("🚀 Production 배포 — " + $repo) } },
+                    { type: "divider" },
+                    { type: "section", text: { type: "mrkdwn", text: ("*변경 내역:*\n" + $changes) } },
+                    { type: "context", elements: [ { type: "mrkdwn", text: ("배포자: *@" + $deployer + "*  |  <" + $repo_url + "|GitHub>") } ] }
+                  ]
+                }
+              ]
+            }')
 
-          curl -s -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL"
+          RESPONSE=$(curl -s -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL")
+          echo "Slack response: $RESPONSE"
+          if [ "$RESPONSE" != "ok" ]; then
+            echo "::error::Slack webhook rejected the payload: $RESPONSE"
+            exit 1
+          fi
