@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import type { PartnerSummary } from "@/lib/types";
+import type { IntegratedBrandSummary } from "@/lib/types";
 import { formatNumber, formatCurrency } from "@/lib/format";
 
-export default function PartnerCard({
-  partner,
+export default function IntegratedBrandCard({
+  brand,
   salesRank,
 }: {
-  partner: PartnerSummary;
+  brand: IntegratedBrandSummary;
   salesRank?: number;
 }) {
   return (
     <Link
-      href={`/partners/${partner.partner_id}`}
+      href={`/partners/${brand.partner_id}/brands/${brand.brand_cd}`}
       className="relative block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
     >
       {salesRank !== undefined && (
@@ -23,29 +23,23 @@ export default function PartnerCard({
       )}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-900 truncate">
-          {partner.partner_name}
+          {brand.brand_nm}
         </h3>
-        <span className="text-xs text-gray-400 ml-2 shrink-0">
-          #{partner.partner_id}
+        <span className="text-xs text-gray-400 ml-2 shrink-0 truncate">
+          {brand.partner_name}
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-3 text-sm">
+      <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <p className="text-gray-500">매출</p>
           <p className="font-medium text-gray-900">
-            {formatCurrency(partner.total_sales)}
+            {formatCurrency(brand.total_sales)}
           </p>
         </div>
         <div>
           <p className="text-gray-500">주문</p>
           <p className="font-medium text-gray-900">
-            {formatNumber(partner.order_count)}
-          </p>
-        </div>
-        <div>
-          <p className="text-gray-500">상품</p>
-          <p className="font-medium text-gray-900">
-            {partner.active_product_count}/{partner.product_count}
+            {formatNumber(brand.order_count)}
           </p>
         </div>
       </div>
