@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { IntegratedBrandSummary } from "@/lib/types";
-import { formatNumber, formatCurrency } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 
 export default function IntegratedBrandCard({
   brand,
@@ -14,34 +14,28 @@ export default function IntegratedBrandCard({
   return (
     <Link
       href={`/partners/${brand.partner_id}/brands/${brand.brand_cd}`}
-      className="relative block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
+      className="flex items-center gap-3 py-3 px-2 hover:bg-gray-50 transition-colors"
     >
-      {salesRank !== undefined && (
-        <span className="absolute -top-2 -left-2 flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold shadow">
-          {salesRank}
-        </span>
-      )}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-900 truncate">
+      <span className="text-sm font-bold text-gray-400 w-6 text-right shrink-0">
+        {salesRank ?? ""}
+      </span>
+
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        <span className="text-sm font-medium text-gray-800 truncate">
           {brand.brand_nm}
-        </h3>
-        <span className="text-xs text-gray-400 ml-2 shrink-0 truncate">
+        </span>
+        <span className="text-xs text-gray-400 truncate shrink-0">
           {brand.partner_name}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-gray-500">매출</p>
-          <p className="font-medium text-gray-900">
-            {formatCurrency(brand.total_sales)}
-          </p>
-        </div>
-        <div>
-          <p className="text-gray-500">주문</p>
-          <p className="font-medium text-gray-900">
-            {formatNumber(brand.order_count)}
-          </p>
-        </div>
+
+      <div className="flex items-center gap-3 shrink-0">
+        <span className="text-sm font-bold text-orange-600 tabular-nums">
+          {formatNumber(brand.total_sales)}원
+        </span>
+        <span className="text-xs text-gray-400 tabular-nums w-14 text-right">
+          {formatNumber(brand.order_count)}건
+        </span>
       </div>
     </Link>
   );
