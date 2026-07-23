@@ -327,7 +327,7 @@ export default function PartnersPage() {
             </p>
           ) : (
             <>
-              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
                 {integratedPaginated.map((b) => (
                   <IntegratedBrandCard
                     key={`${b.partner_id}-${b.brand_cd}`}
