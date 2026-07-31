@@ -327,6 +327,15 @@ export default function PartnersPage() {
             </p>
           ) : (
             <>
+              <div className="flex items-center gap-3 py-2 px-2 text-xs text-gray-400">
+                <span className="w-6 text-right shrink-0">순위</span>
+                <span className="flex-1 min-w-0 text-left">브랜드</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="w-24 text-right">매출액</span>
+                  <span className="w-14 text-right">주문건수</span>
+                </div>
+              </div>
+
               <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
                 {integratedPaginated.map((b) => (
                   <IntegratedBrandCard

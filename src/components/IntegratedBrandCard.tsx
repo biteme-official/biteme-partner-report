@@ -30,7 +30,7 @@ export default function IntegratedBrandCard({
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
-        <span className="text-sm font-bold text-orange-600 tabular-nums">
+        <span className="text-sm font-bold text-orange-600 tabular-nums w-24 text-right">
           {formatNumber(brand.total_sales)}원
         </span>
         <span className="text-xs text-gray-400 tabular-nums w-14 text-right">
