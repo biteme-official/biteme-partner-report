@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { PartnerSummary } from "@/lib/types";
-import { formatNumber, formatCurrency } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 
 export default function PartnerCard({
   partner,
@@ -33,7 +33,7 @@ export default function PartnerCard({
         <div>
           <p className="text-gray-500">매출</p>
           <p className="font-medium text-gray-900">
-            {formatCurrency(partner.total_sales)}
+            {formatNumber(partner.total_sales)}원
           </p>
         </div>
         <div>
