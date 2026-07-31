@@ -329,22 +329,10 @@ export default function PartnersPage() {
             <>
               <div className="flex items-center gap-3 py-2 px-2 text-xs text-gray-400">
                 <span className="w-6 shrink-0" aria-hidden="true" />
-                <span className="flex-1 min-w-0 text-left">
-                  <span className="inline-flex items-center justify-center rounded-full border border-gray-300 px-2 py-0.5">
-                    브랜드
-                  </span>
-                </span>
+                <span className="flex-1 min-w-0 text-left">브랜드</span>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="w-24 text-right">
-                    <span className="inline-flex items-center justify-center rounded-full border border-gray-300 px-2 py-0.5">
-                      매출액
-                    </span>
-                  </span>
-                  <span className="w-14 text-right">
-                    <span className="inline-flex items-center justify-center rounded-full border border-gray-300 px-2 py-0.5">
-                      주문건수
-                    </span>
-                  </span>
+                  <span className="w-24 text-right">매출액</span>
+                  <span className="w-14 text-right">주문건수</span>
                 </div>
               </div>
 
