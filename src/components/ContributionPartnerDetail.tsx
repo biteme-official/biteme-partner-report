@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import ContributionFlowChart, { type FlowPoint } from "@/components/ContributionFlowChart";
 import { formatNumber, formatRate } from "@/lib/format";
@@ -26,13 +27,20 @@ export default function ContributionPartnerDetail({
     partial: currentMonth !== null && i + 1 >= currentMonth,
   }));
 
+  const ref = useRef<HTMLElement>(null);
+
+  // 표가 길어 클릭한 자리에서 상세가 안 보인다 — 열릴 때 화면으로 끌어온다
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [partner.partner_name]);
+
   // 이익률은 진행 중인 달을 빼고 낸다 (시트 공헌이익이 아직 다 차지 않음)
   const closed = points.filter((p) => !p.partial);
   const closedContribution = closed.reduce((s, p) => s + p.contribution, 0);
   const closedSales = closed.reduce((s, p) => s + p.sales, 0);
 
   return (
-    <section className="bg-white rounded-xl border border-blue-200 p-6">
+    <section ref={ref} className="bg-white rounded-xl border border-blue-200 p-6 scroll-mt-4">
       <div className="flex flex-wrap items-start gap-3 mb-5">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">{partner.partner_name}</h2>

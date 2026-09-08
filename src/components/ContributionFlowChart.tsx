@@ -26,6 +26,7 @@ export interface FlowPoint {
 
 const COLOR_CONTRIBUTION = "#3b82f6";
 const COLOR_CONTRIBUTION_PARTIAL = "#bfdbfe";
+const COLOR_CONTRIBUTION_SELECTED = "#1d4ed8";
 const COLOR_SALES = "#8b5cf6";
 const COLOR_RATE = "#059669";
 
@@ -85,6 +86,7 @@ export default function ContributionFlowChart({ points, selectedKey, onSelect }:
             yAxisId="contribution"
             dataKey="contribution"
             name="공헌이익"
+            fill={COLOR_CONTRIBUTION}
             radius={[4, 4, 0, 0]}
             onClick={(entry: unknown) => {
               const point = entry as { payload?: FlowPoint };
@@ -95,9 +97,13 @@ export default function ContributionFlowChart({ points, selectedKey, onSelect }:
             {data.map((p) => (
               <Cell
                 key={p.key}
-                fill={p.partial ? COLOR_CONTRIBUTION_PARTIAL : COLOR_CONTRIBUTION}
-                stroke={selectedKey === p.key ? "#1d4ed8" : undefined}
-                strokeWidth={selectedKey === p.key ? 2 : 0}
+                fill={
+                  selectedKey === p.key
+                    ? COLOR_CONTRIBUTION_SELECTED
+                    : p.partial
+                      ? COLOR_CONTRIBUTION_PARTIAL
+                      : COLOR_CONTRIBUTION
+                }
               />
             ))}
           </Bar>
@@ -117,7 +123,7 @@ export default function ContributionFlowChart({ points, selectedKey, onSelect }:
       <ResponsiveContainer width="100%" height={110}>
         <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#d1d5db" }} />
+          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} />
           <YAxis
             tick={{ fontSize: 11, fill: "#9ca3af" }}
             tickFormatter={(v) => `${v}%`}
@@ -133,7 +139,6 @@ export default function ContributionFlowChart({ points, selectedKey, onSelect }:
             stroke={COLOR_RATE}
             strokeWidth={2}
             dot={{ r: 3 }}
-            connectNulls
           />
         </LineChart>
       </ResponsiveContainer>

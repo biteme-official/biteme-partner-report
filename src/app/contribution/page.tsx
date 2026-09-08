@@ -179,7 +179,9 @@ export default function ContributionPage() {
         rate_contribution: isPartial ? 0 : undefined,
         rate_sales: isPartial ? 0 : undefined,
       };
-    });
+    })
+    // 그 구간에 거래도 공헌이익도 없는 파트너사는 표에서 뺀다
+    .filter((r) => r.sales !== 0 || r.contribution !== 0);
   }, [data, selectedMonth, closedMonths]);
 
   const summary = useMemo(() => {
@@ -367,7 +369,7 @@ export default function ContributionPage() {
                       {weeks.week_count_warning}
                     </p>
                   )}
-                  <ContributionFlowChart points={weekPoints} />
+                  {weeks.sheet_available && <ContributionFlowChart points={weekPoints} />}
                   <div className="overflow-x-auto mt-4">
                     <table className="w-full text-sm min-w-[560px]">
                       <thead>
@@ -396,30 +398,34 @@ export default function ContributionPage() {
                             </td>
                           ))}
                         </tr>
-                        <tr>
-                          <td className="py-2 text-gray-500">공헌이익</td>
-                          {weeks.weeks.map((w) => (
-                            <td
-                              key={w.week_no}
-                              className={`py-2 text-right tabular-nums ${
-                                w.contribution < 0 ? "text-red-500" : "text-gray-900"
-                              }`}
-                            >
-                              {formatNumber(w.contribution)}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr>
-                          <td className="py-2 text-gray-500">공헌이익률</td>
-                          {weeks.weeks.map((w) => (
-                            <td
-                              key={w.week_no}
-                              className="py-2 text-right text-gray-500 tabular-nums"
-                            >
-                              {w.partial ? "—" : formatRate(w.contribution, w.sales)}
-                            </td>
-                          ))}
-                        </tr>
+                        {weeks.sheet_available && (
+                          <>
+                            <tr>
+                              <td className="py-2 text-gray-500">공헌이익</td>
+                              {weeks.weeks.map((w) => (
+                                <td
+                                  key={w.week_no}
+                                  className={`py-2 text-right tabular-nums ${
+                                    w.contribution < 0 ? "text-red-500" : "text-gray-900"
+                                  }`}
+                                >
+                                  {formatNumber(w.contribution)}
+                                </td>
+                              ))}
+                            </tr>
+                            <tr>
+                              <td className="py-2 text-gray-500">공헌이익률</td>
+                              {weeks.weeks.map((w) => (
+                                <td
+                                  key={w.week_no}
+                                  className="py-2 text-right text-gray-500 tabular-nums"
+                                >
+                                  {w.partial ? "—" : formatRate(w.contribution, w.sales)}
+                                </td>
+                              ))}
+                            </tr>
+                          </>
+                        )}
                       </tbody>
                     </table>
                   </div>
