@@ -128,3 +128,26 @@ export interface IntegratedBrandSummary {
   order_count: number;
   total_sales: number;
 }
+
+export interface PartnerSalesSeries {
+  partner_id: number | null;
+  partner_name: string;
+  /** 조회 단위(월 또는 주차)별 거래액 */
+  sales: number[];
+  order_count: number[];
+  sales_total: number;
+}
+
+export interface PartnerSalesYearResponse {
+  year: number;
+  /** index 0 = 1월 */
+  months: number[];
+  partners: PartnerSalesSeries[];
+}
+
+export interface PartnerSalesWeekResponse {
+  year: number;
+  month: number;
+  weeks: { no: number; start: string; end: string }[];
+  partners: PartnerSalesSeries[];
+}
