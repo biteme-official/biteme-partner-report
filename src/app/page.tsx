@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import PartnerCard from "@/components/PartnerCard";
 import IntegratedBrandCard from "@/components/IntegratedBrandCard";
 import TabGroup from "@/components/TabGroup";
@@ -255,15 +254,6 @@ export default function PartnersPage() {
             buttonClassName="px-4 py-1.5 text-sm"
             wrapperClassName="w-fit"
           />
-        </div>
-
-        <div className="ml-4 pl-4 border-l border-gray-300">
-          <Link
-            href="/contribution"
-            className="px-4 py-1.5 text-sm rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors inline-block"
-          >
-            공헌이익
-          </Link>
         </div>
       </div>
 

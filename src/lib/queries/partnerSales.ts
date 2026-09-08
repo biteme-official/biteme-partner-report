@@ -1,4 +1,4 @@
-import type { WeekRange } from "@/lib/contribution";
+import type { WeekRange } from "@/lib/date";
 
 // 기존 파트너 매출 쿼리(queries/partners.ts, queries/insights.ts)와 같은 제외 규칙
 const EXCLUDED_USER_IDS = [
@@ -11,12 +11,13 @@ const EXCLUDED_ORDER_STATES = ["10", "50", "65", "70", "95", "99"];
 const USERS = EXCLUDED_USER_IDS.map((v) => `'${v}'`).join(",");
 const STATES = EXCLUDED_ORDER_STATES.map((v) => `'${v}'`).join(",");
 
-// 공헌이익 시트는 파트너사 코드가 아니라 공급사명으로 관리된다 —
-// 조인 키를 맞추려고 매출도 wt_admin.company_nm 단위로 집계한다.
+// 공헌이익 시트가 파트너사 코드가 아니라 공급사명으로 관리되어,
+// 바깥에서 이름으로 붙일 수 있도록 company_nm 단위로 집계한다.
 export function partnerMonthlySalesByNameSQL(year: number): string {
   return `
     SELECT
       a.company_nm AS partner_name,
+      MIN(a.\`no\`) AS partner_id,
       MONTH(op.reg_date) AS month,
       COUNT(DISTINCT op.ocode) AS order_count,
       ROUND(SUM(op.total_price)) AS total_sales
@@ -35,7 +36,7 @@ export function partnerMonthlySalesByNameSQL(year: number): string {
   `;
 }
 
-// 주차 구간을 시트와 똑같이 자르려고 경계값을 쿼리에 그대로 박는다
+// 주차 구간을 부르는 쪽과 똑같이 자르려고 경계값을 쿼리에 그대로 박는다
 export function partnerWeeklySalesByNameSQL(weeks: WeekRange[]): string {
   if (weeks.length === 0) throw new Error("주차 구간이 비어 있습니다");
 
@@ -46,6 +47,7 @@ export function partnerWeeklySalesByNameSQL(weeks: WeekRange[]): string {
   return `
     SELECT
       a.company_nm AS partner_name,
+      MIN(a.\`no\`) AS partner_id,
       CASE
         ${cases}
       END AS week_no,
