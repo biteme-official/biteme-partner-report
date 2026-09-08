@@ -8,7 +8,8 @@
 - 배포: Vercel — GitHub 연동 자동 배포 (PR → Preview, 머지 → Production)
 - Production: https://biteme-partner-report.vercel.app
 - Admin: @bmahsang, @bmhayoung (배포 + Ruleset 관리 권한)
-- Maintainer: @bmyoujin (PR 리뷰/승인 + master 머지 권한)
+- Maintainer: @bmhayoung (PR 리뷰/승인 + master 머지 결정)
+- GitHub `maintain` 역할 보유: @bmyoujin
 - Developer: @bmkyuri, @bmtnqls021 (Write 권한, PR 생성)
 
 
@@ -90,7 +91,7 @@
 
 ## 권한별 작업 범위
 
-### Maintainer 전용 (@bmyoujin)
+### Maintainer 전용 (@bmhayoung)
 - PR 리뷰 및 Approve
 - PR 머지 (gh pr merge) — Ruleset bypass 권한 보유
 - Release 생성
@@ -100,7 +101,7 @@
 - Ruleset / Branch Protection 변경
 - 리포지토리 설정 변경
 
-→ Developer 요청 시 거부, Maintainer(@bmyoujin) 또는 Admin(@bmahsang)에게 요청하도록 안내
+→ Developer 요청 시 거부, Maintainer(@bmhayoung) 또는 Admin(@bmahsang)에게 요청하도록 안내
 
 
 ## 기획서/문서 정리
@@ -144,11 +145,15 @@ master 브랜치에 적용된 Ruleset 규칙:
 
 | 항목 | 설정값 | 설명 |
 |------|--------|------|
-| required_approving_review_count | 1 | PR 머지에 최소 1명 승인 필요 |
-| dismiss_stale_reviews_on_push | true | 새 커밋 푸시 시 기존 승인 해제 |
-| require_last_push_approval | true | 마지막 푸시 이후 본인 외 승인 필요 |
 | non_fast_forward | 적용 | force push 차단 |
-| bypass | Maintain 역할만 | Maintainer만 규칙 bypass 가능 |
+| bypass | maintain(2) · write(4) · admin(5) | 세 역할 모두 always bypass |
+
+⚠️ **2026-09-08 실측: 승인 관련 규칙이 지금은 걸려 있지 않다.**
+`required_approving_review_count` · `dismiss_stale_reviews_on_push` · `require_last_push_approval`
+세 가지가 예전엔 문서에 적혀 있었으나 현재 ruleset 에는 `non_fast_forward` 하나뿐이다.
+즉 **승인 없이도 master 에 머지된다.** 이 문서의 「master 직접 머지 금지」는 기술적 차단이 아니라 팀 약속이다.
+
+확인 방법: `gh api repos/biteme-official/biteme-partner-report/rulesets/18164567`
 
 ### Ruleset bypass actor_id 참고 (GitHub 미문서화)
 
@@ -166,7 +171,7 @@ GitHub Rulesets API에서 `RepositoryRole` 타입의 `actor_id`는 공식 문서
 ### 워크플로 구조
 
 ```
-Developer(Write) → PR 생성 → Maintainer(Maintain) 리뷰/승인 → 머지 → Vercel 자동 배포
+Developer(Write) → PR 생성 → Maintainer(@bmhayoung) 리뷰/승인 → 머지 → Vercel 자동 배포
 ```
 
 ---
