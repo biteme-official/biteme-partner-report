@@ -1,15 +1,8 @@
 import type { WeekRange } from "@/lib/date";
+import { salesLinesSQL } from "./salesLines";
 
-// 기존 파트너 매출 쿼리(queries/partners.ts, queries/insights.ts)와 같은 제외 규칙
-const EXCLUDED_USER_IDS = [
-  "ptest", "ptest2", "cafebiteme_SS", "cafebiteme_YN",
-  "bite1008", "cafebiteme_CG",
-];
-
-const EXCLUDED_ORDER_STATES = ["10", "50", "65", "70", "95", "99"];
-
-const USERS = EXCLUDED_USER_IDS.map((v) => `'${v}'`).join(",");
-const STATES = EXCLUDED_ORDER_STATES.map((v) => `'${v}'`).join(",");
+// 매출은 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59.
+// 공헌이익 시트의 거래액이 태블로 실매출 기준이라, 여기서도 같은 값을 내야 맞아떨어진다.
 
 // 공헌이익 시트가 파트너사 코드가 아니라 공급사명으로 관리되어,
 // 바깥에서 이름으로 붙일 수 있도록 company_nm 단위로 집계한다.
@@ -18,21 +11,14 @@ export function partnerMonthlySalesByNameSQL(year: number): string {
     SELECT
       a.company_nm AS partner_name,
       MIN(a.\`no\`) AS partner_id,
-      MONTH(op.reg_date) AS month,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    JOIN wt_admin a ON p.supplier = a.\`no\`
-    WHERE oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND a.company_nm NOT LIKE '%바잇미%'
-      AND op.reg_date >= '${year}-01-01 00:00:00'
-      AND op.reg_date < '${year + 1}-01-01 00:00:00'
-    GROUP BY a.company_nm, MONTH(op.reg_date)
+      MONTH(s.reg_date) AS month,
+      COUNT(DISTINCT s.ocode) AS order_count,
+      ROUND(SUM(s.net_sales)) AS total_sales,
+      ROUND(SUM(s.gross_sales)) AS gross_sales
+    FROM (${salesLinesSQL({ fromStr: `${year}-01-01 00:00:00`, toStr: `${year}-12-31 23:59:59` })}) s
+    JOIN wt_admin a ON s.supplier = a.\`no\`
+    WHERE a.company_nm NOT LIKE '%바잇미%'
+    GROUP BY a.company_nm, MONTH(s.reg_date)
   `;
 }
 
@@ -41,7 +27,7 @@ export function partnerWeeklySalesByNameSQL(weeks: WeekRange[]): string {
   if (weeks.length === 0) throw new Error("주차 구간이 비어 있습니다");
 
   const cases = weeks
-    .map((w) => `WHEN DATE(op.reg_date) <= '${w.end}' THEN ${w.no}`)
+    .map((w) => `WHEN DATE(s.reg_date) <= '${w.end}' THEN ${w.no}`)
     .join("\n        ");
 
   return `
@@ -51,19 +37,15 @@ export function partnerWeeklySalesByNameSQL(weeks: WeekRange[]): string {
       CASE
         ${cases}
       END AS week_no,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    JOIN wt_admin a ON p.supplier = a.\`no\`
-    WHERE oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND a.company_nm NOT LIKE '%바잇미%'
-      AND op.reg_date >= '${weeks[0].start} 00:00:00'
-      AND op.reg_date <= '${weeks[weeks.length - 1].end} 23:59:59'
+      COUNT(DISTINCT s.ocode) AS order_count,
+      ROUND(SUM(s.net_sales)) AS total_sales,
+      ROUND(SUM(s.gross_sales)) AS gross_sales
+    FROM (${salesLinesSQL({
+      fromStr: `${weeks[0].start} 00:00:00`,
+      toStr: `${weeks[weeks.length - 1].end} 23:59:59`,
+    })}) s
+    JOIN wt_admin a ON s.supplier = a.\`no\`
+    WHERE a.company_nm NOT LIKE '%바잇미%'
     GROUP BY a.company_nm, week_no
   `;
 }

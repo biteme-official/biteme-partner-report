@@ -31,7 +31,7 @@ export default function PartnerCard({
       </div>
       <div className="grid grid-cols-3 gap-3 text-sm">
         <div>
-          <p className="text-gray-500">매출</p>
+          <p className="text-gray-500">실매출</p>
           <p className="font-medium text-gray-900">
             {formatNumber(partner.total_sales)}원
           </p>

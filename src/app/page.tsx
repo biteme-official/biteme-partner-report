@@ -331,7 +331,7 @@ export default function PartnersPage() {
                 <span className="w-6 shrink-0" aria-hidden="true" />
                 <span className="flex-1 min-w-0 text-left">브랜드</span>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="w-24 text-right">매출액</span>
+                  <span className="w-24 text-right">실매출</span>
                   <span className="w-14 text-right">주문건수</span>
                 </div>
               </div>
