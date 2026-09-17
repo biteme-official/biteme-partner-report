@@ -143,6 +143,65 @@ export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date): 
   `;
 }
 
+/**
+ * 신규/재구매 구매자를 브랜드별로 나눈 것 (promotion-manager 위탁사 화면 요청, 2026-09-17).
+ *
+ * 신규/재구매의 기준은 partnerBuyerTypeSQL 과 같은 "이 위탁사에서의 첫 주문"입니다 — 브랜드별로
+ * 첫 주문을 따로 잡으면 브랜드 합이 위탁사 합계와 안 맞습니다. 한 구매자가 기간 안에 두 브랜드를
+ * 샀으면 두 브랜드 양쪽에 셉니다(brand_cd 별 GROUP BY).
+ */
+export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: Date): string {
+  return `
+    SELECT
+      brand_cd,
+      brand_nm,
+      CASE
+        WHEN first_order_date >= '${fmt(start)}' THEN 'new'
+        ELSE 'repeat'
+      END AS buyer_type,
+      COUNT(*) AS buyer_count,
+      ROUND(SUM(period_sales)) AS total_sales,
+      SUM(period_orders) AS order_count
+    FROM (
+      SELECT
+        oi.user_id,
+        p.brand_cd AS brand_cd,
+        IFNULL(MAX(c2.code_nm2), p.brand_cd) AS brand_nm,
+        MIN(first_ord.first_date) AS first_order_date,
+        SUM(op.total_price) AS period_sales,
+        COUNT(DISTINCT op.ocode) AS period_orders
+      FROM wt_order_product op
+      JOIN wt_order_info oi ON op.ocode = oi.ocode
+      JOIN wt_product p ON op.product_cd = p.product_cd
+      LEFT JOIN wt_code2 c2 ON p.brand_cd = c2.code_cd2
+      JOIN (
+        SELECT
+          oi2.user_id,
+          MIN(op2.reg_date) AS first_date
+        FROM wt_order_product op2
+        JOIN wt_order_info oi2 ON op2.ocode = oi2.ocode
+        JOIN wt_product p2 ON op2.product_cd = p2.product_cd
+        WHERE p2.supplier = ${Number(partnerId)}
+          AND oi2.order_yn = 'y'
+          AND op2.product_order_state_cd NOT IN (${STATES})
+          AND oi2.user_id IS NOT NULL
+          AND oi2.user_id NOT IN (${USERS})
+        GROUP BY oi2.user_id
+      ) first_ord ON oi.user_id = first_ord.user_id
+      WHERE p.supplier = ${Number(partnerId)}
+        AND oi.order_yn = 'y'
+        AND op.product_order_state_cd NOT IN (${STATES})
+        AND oi.user_id IS NOT NULL
+        AND oi.user_id NOT IN (${USERS})
+        AND op.product_nm NOT LIKE '%응모권%'
+        AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
+      GROUP BY oi.user_id, p.brand_cd
+    ) buyer_brand
+    GROUP BY brand_cd, brand_nm, buyer_type
+    ORDER BY total_sales DESC
+  `;
+}
+
 export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6): string {
   return `
     SELECT
