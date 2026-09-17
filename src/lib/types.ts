@@ -1,3 +1,14 @@
+export interface SalesBreakdown {
+  /** 태블로 실매출 = 매출액 − 쿠폰 − 적립금 − 예치금 */
+  total_sales: number;
+  /** 태블로 매출액 = 상품가 + 배송비 */
+  gross_sales: number;
+  coupon: number;
+  reserve: number;
+  deposit: number;
+  trans: number;
+}
+
 export interface PartnerSummary {
   partner_id: number;
   partner_name: string;
@@ -5,6 +16,7 @@ export interface PartnerSummary {
   active_product_count: number;
   order_count: number;
   total_sales: number;
+  gross_sales: number;
 }
 
 export interface PartnerBasic {
@@ -28,29 +40,26 @@ export interface PartnerDetail {
   brand_count: number;
 }
 
-export interface DailySales {
+export interface DailySales extends SalesBreakdown {
   sale_date: string;
   order_count: number;
   buyer_count: number;
   total_qty: number;
-  total_sales: number;
 }
 
-export interface HourlySales {
+export interface HourlySales extends SalesBreakdown {
   sale_hour: number;
   order_count: number;
   buyer_count: number;
   total_qty: number;
-  total_sales: number;
 }
 
-export interface ProductSales {
+export interface ProductSales extends SalesBreakdown {
   product_cd: string;
   product_nm: string;
   brand_nm: string;
   total_qty: number;
   order_count: number;
-  total_sales: number;
 }
 
 export interface BrandInfo {
@@ -69,21 +78,19 @@ export interface BrandDetail {
   active_product_count: number;
 }
 
-export interface MonthlySales {
+export interface MonthlySales extends SalesBreakdown {
   month: string;
   order_count: number;
   buyer_count: number;
   total_qty: number;
-  total_sales: number;
 }
 
-export interface WeeklySales {
+export interface WeeklySales extends SalesBreakdown {
   year_week: number;
   week_start: string;
   order_count: number;
   buyer_count: number;
   total_qty: number;
-  total_sales: number;
 }
 
 export interface GrowthProduct {
@@ -130,13 +137,12 @@ export interface ReturnRate {
   return_rate: number | null;
 }
 
-export interface IntegratedBrandSummary {
+export interface IntegratedBrandSummary extends SalesBreakdown {
   partner_id: number;
   partner_name: string;
   brand_cd: string;
   brand_nm: string;
   order_count: number;
-  total_sales: number;
 }
 
 export interface PartnerSalesSeries {

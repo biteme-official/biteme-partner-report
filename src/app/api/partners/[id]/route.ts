@@ -38,7 +38,7 @@ export async function GET(
       : partnerSalesSQL(id, start, end);
 
     const [detail, sales, products, brands] = await queryBatch<[PartnerDetail[], (DailySales | HourlySales)[], ProductSales[], BrandInfo[]]>([
-      partnerDetailSQL(id, start, end),
+      partnerDetailSQL(id),
       salesSQL,
       partnerProductsSQL(id, start, end),
       partnerBrandsSQL(id),

@@ -1,36 +1,17 @@
-const EXCLUDED_USER_IDS = [
-  "ptest", "ptest2", "cafebiteme_SS", "cafebiteme_YN",
-  "bite1008", "cafebiteme_CG",
-];
+import { fmt, salesLinesSQL, salesWhereSQL, SALES_AGG_COLUMNS, EXCLUDED_USER_IDS } from "./salesLines";
 
-const EXCLUDED_ORDER_STATES = ["10", "50", "65", "70", "95", "99"];
-
-const USERS = EXCLUDED_USER_IDS.map((v) => `'${v}'`).join(",");
-const STATES = EXCLUDED_ORDER_STATES.map((v) => `'${v}'`).join(",");
-
-function fmt(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
+// 매출은 전부 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59
 
 export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6): string {
   return `
     SELECT
-      DATE_FORMAT(op.reg_date, '%Y-%m') AS month,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      COUNT(DISTINCT oi.user_id) AS buyer_count,
-      SUM(op.qty) AS total_qty,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    WHERE p.supplier = ${Number(partnerId)}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)
-    GROUP BY DATE_FORMAT(op.reg_date, '%Y-%m')
+      DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
+      COUNT(DISTINCT s.ocode) AS order_count,
+      COUNT(DISTINCT s.user_id) AS buyer_count,
+      SUM(s.qty) AS total_qty,
+      ${SALES_AGG_COLUMNS}
+    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)` })}) s
+    GROUP BY DATE_FORMAT(s.reg_date, '%Y-%m')
     ORDER BY month
   `;
 }
@@ -38,22 +19,14 @@ export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6
 export function partnerWeeklySalesSQL(partnerId: string, weeksBack: number = 12): string {
   return `
     SELECT
-      YEARWEEK(op.reg_date, 1) AS year_week,
-      MIN(DATE(op.reg_date)) AS week_start,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      COUNT(DISTINCT oi.user_id) AS buyer_count,
-      SUM(op.qty) AS total_qty,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    WHERE p.supplier = ${Number(partnerId)}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${weeksBack} WEEK)
-    GROUP BY YEARWEEK(op.reg_date, 1)
+      YEARWEEK(s.reg_date, 1) AS year_week,
+      MIN(DATE(s.reg_date)) AS week_start,
+      COUNT(DISTINCT s.ocode) AS order_count,
+      COUNT(DISTINCT s.user_id) AS buyer_count,
+      SUM(s.qty) AS total_qty,
+      ${SALES_AGG_COLUMNS}
+    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${weeksBack} WEEK)` })}) s
+    GROUP BY YEARWEEK(s.reg_date, 1)
     ORDER BY year_week
   `;
 }
@@ -68,31 +41,37 @@ export function partnerTopGrowthProductsSQL(partnerId: string): string {
       ROUND((curr_sales - prev_sales) / NULLIF(prev_sales, 0) * 100, 1) AS growth_rate
     FROM (
       SELECT
-        op.product_cd,
-        MAX(op.product_nm) AS product_nm,
-        SUM(CASE
-          WHEN op.reg_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN op.total_price ELSE 0
-        END) AS curr_sales,
-        SUM(CASE
-          WHEN op.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
-            AND op.reg_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN op.total_price ELSE 0
-        END) AS prev_sales
-      FROM wt_order_product op
-      JOIN wt_order_info oi ON op.ocode = oi.ocode
-      JOIN wt_product p ON op.product_cd = p.product_cd
-      WHERE p.supplier = ${Number(partnerId)}
-        AND oi.order_yn = 'y'
-        AND op.product_order_state_cd NOT IN (${STATES})
-        AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-        AND op.product_nm NOT LIKE '%응모권%'
-        AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
-      GROUP BY op.product_cd
+        s.product_cd,
+        MAX(s.product_nm) AS product_nm,
+        ROUND(SUM(CASE
+          WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          THEN s.net_sales ELSE 0
+        END)) AS curr_sales,
+        ROUND(SUM(CASE
+          WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+            AND s.reg_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          THEN s.net_sales ELSE 0
+        END)) AS prev_sales
+      FROM (${salesLinesSQL({ partnerId, sinceExpr: "DATE_SUB(CURDATE(), INTERVAL 60 DAY)" })}) s
+      GROUP BY s.product_cd
       HAVING curr_sales > 0 OR prev_sales > 0
     ) sub
     ORDER BY growth_rate DESC
     LIMIT 10
+  `;
+}
+
+// "이 위탁사에서의 첫 주문" — 상태·계정 제외 규칙은 매출과 같고, 응모권만 기존처럼 안 뺀다
+function firstOrderSQL(partnerId: string): string {
+  return `
+    SELECT
+      oi.user_id,
+      MIN(op.reg_date) AS first_date
+    FROM wt_order_product op
+    JOIN wt_order_info oi ON op.ocode = oi.ocode
+    JOIN wt_product p ON op.product_cd = p.product_cd
+    WHERE ${salesWhereSQL({ partnerId, memberOnly: true, excludeRaffle: false })}
+    GROUP BY oi.user_id
   `;
 }
 
@@ -109,35 +88,13 @@ export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date): 
       ROUND(SUM(period_sales) / SUM(period_orders)) AS avg_order_value
     FROM (
       SELECT
-        oi.user_id,
+        s.user_id,
         MIN(first_ord.first_date) AS first_order_date,
-        SUM(op.total_price) AS period_sales,
-        COUNT(DISTINCT op.ocode) AS period_orders
-      FROM wt_order_product op
-      JOIN wt_order_info oi ON op.ocode = oi.ocode
-      JOIN wt_product p ON op.product_cd = p.product_cd
-      JOIN (
-        SELECT
-          oi2.user_id,
-          MIN(op2.reg_date) AS first_date
-        FROM wt_order_product op2
-        JOIN wt_order_info oi2 ON op2.ocode = oi2.ocode
-        JOIN wt_product p2 ON op2.product_cd = p2.product_cd
-        WHERE p2.supplier = ${Number(partnerId)}
-          AND oi2.order_yn = 'y'
-          AND op2.product_order_state_cd NOT IN (${STATES})
-          AND oi2.user_id IS NOT NULL
-          AND oi2.user_id NOT IN (${USERS})
-        GROUP BY oi2.user_id
-      ) first_ord ON oi.user_id = first_ord.user_id
-      WHERE p.supplier = ${Number(partnerId)}
-        AND oi.order_yn = 'y'
-        AND op.product_order_state_cd NOT IN (${STATES})
-        AND oi.user_id IS NOT NULL
-        AND oi.user_id NOT IN (${USERS})
-        AND op.product_nm NOT LIKE '%응모권%'
-        AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
-      GROUP BY oi.user_id
+        SUM(s.net_sales) AS period_sales,
+        COUNT(DISTINCT s.ocode) AS period_orders
+      FROM (${salesLinesSQL({ partnerId, start, end, memberOnly: true })}) s
+      JOIN (${firstOrderSQL(partnerId)}) first_ord ON s.user_id = first_ord.user_id
+      GROUP BY s.user_id
     ) buyer_summary
     GROUP BY buyer_type
   `;
@@ -164,38 +121,16 @@ export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: 
       SUM(period_orders) AS order_count
     FROM (
       SELECT
-        oi.user_id,
-        p.brand_cd AS brand_cd,
-        IFNULL(MAX(c2.code_nm2), p.brand_cd) AS brand_nm,
+        s.user_id,
+        s.brand_cd AS brand_cd,
+        IFNULL(MAX(c2.code_nm2), s.brand_cd) AS brand_nm,
         MIN(first_ord.first_date) AS first_order_date,
-        SUM(op.total_price) AS period_sales,
-        COUNT(DISTINCT op.ocode) AS period_orders
-      FROM wt_order_product op
-      JOIN wt_order_info oi ON op.ocode = oi.ocode
-      JOIN wt_product p ON op.product_cd = p.product_cd
-      LEFT JOIN wt_code2 c2 ON p.brand_cd = c2.code_cd2
-      JOIN (
-        SELECT
-          oi2.user_id,
-          MIN(op2.reg_date) AS first_date
-        FROM wt_order_product op2
-        JOIN wt_order_info oi2 ON op2.ocode = oi2.ocode
-        JOIN wt_product p2 ON op2.product_cd = p2.product_cd
-        WHERE p2.supplier = ${Number(partnerId)}
-          AND oi2.order_yn = 'y'
-          AND op2.product_order_state_cd NOT IN (${STATES})
-          AND oi2.user_id IS NOT NULL
-          AND oi2.user_id NOT IN (${USERS})
-        GROUP BY oi2.user_id
-      ) first_ord ON oi.user_id = first_ord.user_id
-      WHERE p.supplier = ${Number(partnerId)}
-        AND oi.order_yn = 'y'
-        AND op.product_order_state_cd NOT IN (${STATES})
-        AND oi.user_id IS NOT NULL
-        AND oi.user_id NOT IN (${USERS})
-        AND op.product_nm NOT LIKE '%응모권%'
-        AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
-      GROUP BY oi.user_id, p.brand_cd
+        SUM(s.net_sales) AS period_sales,
+        COUNT(DISTINCT s.ocode) AS period_orders
+      FROM (${salesLinesSQL({ partnerId, start, end, memberOnly: true })}) s
+      LEFT JOIN wt_code2 c2 ON s.brand_cd = c2.code_cd2
+      JOIN (${firstOrderSQL(partnerId)}) first_ord ON s.user_id = first_ord.user_id
+      GROUP BY s.user_id, s.brand_cd
     ) buyer_brand
     GROUP BY brand_cd, brand_nm, buyer_type
     ORDER BY total_sales DESC
@@ -205,43 +140,24 @@ export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: 
 export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6): string {
   return `
     SELECT
-      DATE_FORMAT(op.reg_date, '%Y-%m') AS month,
+      DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
       CASE
-        WHEN first_ord.first_date >= DATE_FORMAT(op.reg_date, '%Y-%m-01')
-          AND first_ord.first_date < DATE_ADD(DATE_FORMAT(op.reg_date, '%Y-%m-01'), INTERVAL 1 MONTH)
+        WHEN first_ord.first_date >= DATE_FORMAT(s.reg_date, '%Y-%m-01')
+          AND first_ord.first_date < DATE_ADD(DATE_FORMAT(s.reg_date, '%Y-%m-01'), INTERVAL 1 MONTH)
         THEN 'new'
         ELSE 'repeat'
       END AS buyer_type,
-      COUNT(DISTINCT oi.user_id) AS buyer_count,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    JOIN (
-      SELECT
-        oi2.user_id,
-        MIN(op2.reg_date) AS first_date
-      FROM wt_order_product op2
-      JOIN wt_order_info oi2 ON op2.ocode = oi2.ocode
-      JOIN wt_product p2 ON op2.product_cd = p2.product_cd
-      WHERE p2.supplier = ${Number(partnerId)}
-        AND oi2.order_yn = 'y'
-        AND op2.product_order_state_cd NOT IN (${STATES})
-        AND oi2.user_id IS NOT NULL
-        AND oi2.user_id NOT IN (${USERS})
-      GROUP BY oi2.user_id
-    ) first_ord ON oi.user_id = first_ord.user_id
-    WHERE p.supplier = ${Number(partnerId)}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND oi.user_id IS NOT NULL
-      AND oi.user_id NOT IN (${USERS})
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)
+      COUNT(DISTINCT s.user_id) AS buyer_count,
+      ROUND(SUM(s.net_sales)) AS total_sales
+    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)`, memberOnly: true })}) s
+    JOIN (${firstOrderSQL(partnerId)}) first_ord ON s.user_id = first_ord.user_id
     GROUP BY month, buyer_type
     ORDER BY month
   `;
 }
+
+// 반품률은 매출 산식과 무관하게 전체 주문 상태를 본다(기존 그대로)
+const USERS = EXCLUDED_USER_IDS.map((v) => `'${v}'`).join(",");
 
 export function partnerReturnRateSQL(partnerId: string, start: Date, end: Date): string {
   return `

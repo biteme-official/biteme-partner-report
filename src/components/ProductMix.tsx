@@ -26,7 +26,7 @@ export default function ProductMix({ products }: Props) {
               <th className="pb-3 font-medium pr-4">#</th>
               <th className="pb-3 font-medium">상품명</th>
               <th className="pb-3 font-medium pl-6">브랜드</th>
-              <th className="pb-3 font-medium text-right pl-10">매출</th>
+              <th className="pb-3 font-medium text-right pl-10">실매출</th>
               <th className="pb-3 font-medium text-right pl-10">비중</th>
               <th className="pb-3 font-medium text-right pl-10">수량</th>
               <th className="pb-3 font-medium text-right pl-10">주문</th>

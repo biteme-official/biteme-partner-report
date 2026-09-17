@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import type { DailySales, HourlySales } from "@/lib/types";
+import type { DailySales, HourlySales, SalesBreakdown } from "@/lib/types";
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -86,17 +86,33 @@ export default function SalesOverview({
     });
   }
 
+  // 실매출 구성 — 태블로 산식(매출액 − 쿠폰 − 적립금 − 예치금)을 그대로 보여 준다
+  const sumOf = (key: "gross_sales" | "coupon" | "reserve" | "deposit" | "trans") =>
+    (sales as SalesBreakdown[]).reduce((acc, d) => acc + (Number(d[key]) || 0), 0);
+  const breakdown = {
+    gross: sumOf("gross_sales"),
+    coupon: sumOf("coupon"),
+    reserve: sumOf("reserve"),
+    deposit: sumOf("deposit"),
+    trans: sumOf("trans"),
+  };
+
   const salesPct = compareTotalSales !== undefined ? pctChange(totalSales, compareTotalSales) : null;
   const ordersPct = compareTotalOrders !== undefined ? pctChange(totalOrders, compareTotalOrders) : null;
   const buyersPct = compareTotalBuyers !== undefined ? pctChange(totalBuyers, compareTotalBuyers) : null;
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">매출 현황</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">매출 현황</h2>
+        <p className="text-xs text-gray-400">
+          실매출 = 매출액(상품가+배송비) − 쿠폰 − 적립금 − 예치금 · 태블로와 같은 기준
+        </p>
+      </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 rounded-lg p-4">
-          <p className="text-sm text-blue-600">총 매출</p>
+          <p className="text-sm text-blue-600">실매출</p>
           <p className="text-xl font-bold text-blue-900">{totalSales.toLocaleString("ko-KR")}원</p>
           {salesPct && (
             <p className={`text-xs mt-1 font-medium ${salesPct.positive ? "text-green-600" : "text-red-500"}`}>
@@ -104,6 +120,28 @@ export default function SalesOverview({
               <span className="text-gray-400 font-normal">전기간 대비</span>
             </p>
           )}
+          <dl className="mt-2 pt-2 border-t border-blue-100 text-xs text-blue-800 space-y-0.5">
+            <div className="flex justify-between gap-2">
+              <dt>매출액</dt>
+              <dd className="tabular-nums">{breakdown.gross.toLocaleString("ko-KR")}원</dd>
+            </div>
+            <div className="flex justify-between gap-2 text-blue-500">
+              <dt className="pl-2">└ 배송비 포함</dt>
+              <dd className="tabular-nums">{breakdown.trans.toLocaleString("ko-KR")}원</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt>쿠폰 할인</dt>
+              <dd className="tabular-nums">−{breakdown.coupon.toLocaleString("ko-KR")}원</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt>적립금 사용</dt>
+              <dd className="tabular-nums">−{breakdown.reserve.toLocaleString("ko-KR")}원</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt>예치금 사용</dt>
+              <dd className="tabular-nums">−{breakdown.deposit.toLocaleString("ko-KR")}원</dd>
+            </div>
+          </dl>
         </div>
         <div className="bg-green-50 rounded-lg p-4">
           <p className="text-sm text-green-600">주문 수</p>

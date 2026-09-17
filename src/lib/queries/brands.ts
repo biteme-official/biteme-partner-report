@@ -1,19 +1,7 @@
 import mysql from "mysql2/promise";
+import { fmt, salesLinesSQL, salesWhereSQL, SALES_AGG_COLUMNS, EXCLUDED_USER_IDS } from "./salesLines";
 
-const EXCLUDED_USER_IDS = [
-  "ptest", "ptest2", "cafebiteme_SS", "cafebiteme_YN",
-  "bite1008", "cafebiteme_CG",
-];
-
-const EXCLUDED_ORDER_STATES = ["10", "50", "65", "70", "95", "99"];
-
-const USERS = EXCLUDED_USER_IDS.map((v) => `'${v}'`).join(",");
-const STATES = EXCLUDED_ORDER_STATES.map((v) => `'${v}'`).join(",");
-
-function fmt(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
+// 매출은 전부 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59
 
 export function brandAllListSQL(): string {
   return `
@@ -56,105 +44,64 @@ export function brandDetailSQL(partnerId: string, brandCd: string): string {
 }
 
 export function brandSalesSQL(partnerId: string, brandCd: string, start: Date, end: Date): string {
-  const brand = mysql.escape(brandCd);
   return `
     SELECT
-      DATE(op.reg_date) AS sale_date,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      COUNT(DISTINCT oi.user_id) AS buyer_count,
-      SUM(op.qty) AS total_qty,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    WHERE p.supplier = ${Number(partnerId)}
-      AND p.brand_cd = ${brand}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
-    GROUP BY DATE(op.reg_date)
+      DATE(s.reg_date) AS sale_date,
+      COUNT(DISTINCT s.ocode) AS order_count,
+      COUNT(DISTINCT s.user_id) AS buyer_count,
+      SUM(s.qty) AS total_qty,
+      ${SALES_AGG_COLUMNS}
+    FROM (${salesLinesSQL({ partnerId, brandCd, start, end })}) s
+    GROUP BY DATE(s.reg_date)
     ORDER BY sale_date
   `;
 }
 
 export function brandHourlySalesSQL(partnerId: string, brandCd: string, start: Date, end: Date): string {
-  const brand = mysql.escape(brandCd);
   return `
     SELECT
-      HOUR(op.reg_date) AS sale_hour,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      COUNT(DISTINCT oi.user_id) AS buyer_count,
-      SUM(op.qty) AS total_qty,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    WHERE p.supplier = ${Number(partnerId)}
-      AND p.brand_cd = ${brand}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
-    GROUP BY HOUR(op.reg_date)
+      HOUR(s.reg_date) AS sale_hour,
+      COUNT(DISTINCT s.ocode) AS order_count,
+      COUNT(DISTINCT s.user_id) AS buyer_count,
+      SUM(s.qty) AS total_qty,
+      ${SALES_AGG_COLUMNS}
+    FROM (${salesLinesSQL({ partnerId, brandCd, start, end })}) s
+    GROUP BY HOUR(s.reg_date)
     ORDER BY sale_hour
   `;
 }
 
 export function brandProductsSQL(partnerId: string, brandCd: string, start: Date, end: Date): string {
-  const brand = mysql.escape(brandCd);
   return `
     SELECT
-      op.product_cd,
-      MAX(op.product_nm) AS product_nm,
-      IFNULL(MAX(c2.code_nm2), MAX(p.brand_cd)) AS brand_nm,
-      SUM(op.qty) AS total_qty,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    LEFT JOIN wt_code2 c2 ON p.brand_cd = c2.code_cd2
-    WHERE p.supplier = ${Number(partnerId)}
-      AND p.brand_cd = ${brand}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
-    GROUP BY op.product_cd
+      s.product_cd,
+      MAX(s.product_nm) AS product_nm,
+      IFNULL(MAX(c2.code_nm2), MAX(s.brand_cd)) AS brand_nm,
+      SUM(s.qty) AS total_qty,
+      COUNT(DISTINCT s.ocode) AS order_count,
+      ${SALES_AGG_COLUMNS}
+    FROM (${salesLinesSQL({ partnerId, brandCd, start, end })}) s
+    LEFT JOIN wt_code2 c2 ON s.brand_cd = c2.code_cd2
+    GROUP BY s.product_cd
     ORDER BY total_sales DESC
   `;
 }
 
 export function brandMonthlySalesSQL(partnerId: string, brandCd: string, monthsBack: number = 6): string {
-  const brand = mysql.escape(brandCd);
   return `
     SELECT
-      DATE_FORMAT(op.reg_date, '%Y-%m') AS month,
-      COUNT(DISTINCT op.ocode) AS order_count,
-      COUNT(DISTINCT oi.user_id) AS buyer_count,
-      SUM(op.qty) AS total_qty,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    WHERE p.supplier = ${Number(partnerId)}
-      AND p.brand_cd = ${brand}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)
-    GROUP BY DATE_FORMAT(op.reg_date, '%Y-%m')
+      DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
+      COUNT(DISTINCT s.ocode) AS order_count,
+      COUNT(DISTINCT s.user_id) AS buyer_count,
+      SUM(s.qty) AS total_qty,
+      ${SALES_AGG_COLUMNS}
+    FROM (${salesLinesSQL({ partnerId, brandCd, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)` })}) s
+    GROUP BY DATE_FORMAT(s.reg_date, '%Y-%m')
     ORDER BY month
   `;
 }
 
 export function brandTopGrowthProductsSQL(partnerId: string, brandCd: string): string {
-  const brand = mysql.escape(brandCd);
   return `
     SELECT
       product_cd,
@@ -164,28 +111,19 @@ export function brandTopGrowthProductsSQL(partnerId: string, brandCd: string): s
       ROUND((curr_sales - prev_sales) / NULLIF(prev_sales, 0) * 100, 1) AS growth_rate
     FROM (
       SELECT
-        op.product_cd,
-        MAX(op.product_nm) AS product_nm,
-        SUM(CASE
-          WHEN op.reg_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN op.total_price ELSE 0
-        END) AS curr_sales,
-        SUM(CASE
-          WHEN op.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
-            AND op.reg_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN op.total_price ELSE 0
-        END) AS prev_sales
-      FROM wt_order_product op
-      JOIN wt_order_info oi ON op.ocode = oi.ocode
-      JOIN wt_product p ON op.product_cd = p.product_cd
-      WHERE p.supplier = ${Number(partnerId)}
-        AND p.brand_cd = ${brand}
-        AND oi.order_yn = 'y'
-        AND op.product_order_state_cd NOT IN (${STATES})
-        AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
-        AND op.product_nm NOT LIKE '%응모권%'
-        AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
-      GROUP BY op.product_cd
+        s.product_cd,
+        MAX(s.product_nm) AS product_nm,
+        ROUND(SUM(CASE
+          WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          THEN s.net_sales ELSE 0
+        END)) AS curr_sales,
+        ROUND(SUM(CASE
+          WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+            AND s.reg_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          THEN s.net_sales ELSE 0
+        END)) AS prev_sales
+      FROM (${salesLinesSQL({ partnerId, brandCd, sinceExpr: "DATE_SUB(CURDATE(), INTERVAL 60 DAY)" })}) s
+      GROUP BY s.product_cd
       HAVING curr_sales > 0 OR prev_sales > 0
     ) sub
     ORDER BY growth_rate DESC
@@ -193,8 +131,21 @@ export function brandTopGrowthProductsSQL(partnerId: string, brandCd: string): s
   `;
 }
 
+// "이 브랜드에서의 첫 주문" — 상태·계정 제외 규칙은 매출과 같고, 응모권만 기존처럼 안 뺀다
+function brandFirstOrderSQL(partnerId: string, brandCd: string): string {
+  return `
+    SELECT
+      oi.user_id,
+      MIN(op.reg_date) AS first_date
+    FROM wt_order_product op
+    JOIN wt_order_info oi ON op.ocode = oi.ocode
+    JOIN wt_product p ON op.product_cd = p.product_cd
+    WHERE ${salesWhereSQL({ partnerId, brandCd, memberOnly: true, excludeRaffle: false })}
+    GROUP BY oi.user_id
+  `;
+}
+
 export function brandBuyerTypeSQL(partnerId: string, brandCd: string, start: Date, end: Date): string {
-  const brand = mysql.escape(brandCd);
   return `
     SELECT
       CASE
@@ -207,85 +158,39 @@ export function brandBuyerTypeSQL(partnerId: string, brandCd: string, start: Dat
       ROUND(SUM(period_sales) / SUM(period_orders)) AS avg_order_value
     FROM (
       SELECT
-        oi.user_id,
+        s.user_id,
         MIN(first_ord.first_date) AS first_order_date,
-        SUM(op.total_price) AS period_sales,
-        COUNT(DISTINCT op.ocode) AS period_orders
-      FROM wt_order_product op
-      JOIN wt_order_info oi ON op.ocode = oi.ocode
-      JOIN wt_product p ON op.product_cd = p.product_cd
-      JOIN (
-        SELECT
-          oi2.user_id,
-          MIN(op2.reg_date) AS first_date
-        FROM wt_order_product op2
-        JOIN wt_order_info oi2 ON op2.ocode = oi2.ocode
-        JOIN wt_product p2 ON op2.product_cd = p2.product_cd
-        WHERE p2.supplier = ${Number(partnerId)}
-          AND p2.brand_cd = ${brand}
-          AND oi2.order_yn = 'y'
-          AND op2.product_order_state_cd NOT IN (${STATES})
-          AND oi2.user_id IS NOT NULL
-          AND oi2.user_id NOT IN (${USERS})
-        GROUP BY oi2.user_id
-      ) first_ord ON oi.user_id = first_ord.user_id
-      WHERE p.supplier = ${Number(partnerId)}
-        AND p.brand_cd = ${brand}
-        AND oi.order_yn = 'y'
-        AND op.product_order_state_cd NOT IN (${STATES})
-        AND oi.user_id IS NOT NULL
-        AND oi.user_id NOT IN (${USERS})
-        AND op.product_nm NOT LIKE '%응모권%'
-        AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'
-      GROUP BY oi.user_id
+        SUM(s.net_sales) AS period_sales,
+        COUNT(DISTINCT s.ocode) AS period_orders
+      FROM (${salesLinesSQL({ partnerId, brandCd, start, end, memberOnly: true })}) s
+      JOIN (${brandFirstOrderSQL(partnerId, brandCd)}) first_ord ON s.user_id = first_ord.user_id
+      GROUP BY s.user_id
     ) buyer_summary
     GROUP BY buyer_type
   `;
 }
 
 export function brandBuyerMonthlySQL(partnerId: string, brandCd: string, monthsBack: number = 6): string {
-  const brand = mysql.escape(brandCd);
   return `
     SELECT
-      DATE_FORMAT(op.reg_date, '%Y-%m') AS month,
+      DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
       CASE
-        WHEN first_ord.first_date >= DATE_FORMAT(op.reg_date, '%Y-%m-01')
-          AND first_ord.first_date < DATE_ADD(DATE_FORMAT(op.reg_date, '%Y-%m-01'), INTERVAL 1 MONTH)
+        WHEN first_ord.first_date >= DATE_FORMAT(s.reg_date, '%Y-%m-01')
+          AND first_ord.first_date < DATE_ADD(DATE_FORMAT(s.reg_date, '%Y-%m-01'), INTERVAL 1 MONTH)
         THEN 'new'
         ELSE 'repeat'
       END AS buyer_type,
-      COUNT(DISTINCT oi.user_id) AS buyer_count,
-      ROUND(SUM(op.total_price)) AS total_sales
-    FROM wt_order_product op
-    JOIN wt_order_info oi ON op.ocode = oi.ocode
-    JOIN wt_product p ON op.product_cd = p.product_cd
-    JOIN (
-      SELECT
-        oi2.user_id,
-        MIN(op2.reg_date) AS first_date
-      FROM wt_order_product op2
-      JOIN wt_order_info oi2 ON op2.ocode = oi2.ocode
-      JOIN wt_product p2 ON op2.product_cd = p2.product_cd
-      WHERE p2.supplier = ${Number(partnerId)}
-        AND p2.brand_cd = ${brand}
-        AND oi2.order_yn = 'y'
-        AND op2.product_order_state_cd NOT IN (${STATES})
-        AND oi2.user_id IS NOT NULL
-        AND oi2.user_id NOT IN (${USERS})
-      GROUP BY oi2.user_id
-    ) first_ord ON oi.user_id = first_ord.user_id
-    WHERE p.supplier = ${Number(partnerId)}
-      AND p.brand_cd = ${brand}
-      AND oi.order_yn = 'y'
-      AND op.product_order_state_cd NOT IN (${STATES})
-      AND oi.user_id IS NOT NULL
-      AND oi.user_id NOT IN (${USERS})
-      AND op.product_nm NOT LIKE '%응모권%'
-      AND op.reg_date >= DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)
+      COUNT(DISTINCT s.user_id) AS buyer_count,
+      ROUND(SUM(s.net_sales)) AS total_sales
+    FROM (${salesLinesSQL({ partnerId, brandCd, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)`, memberOnly: true })}) s
+    JOIN (${brandFirstOrderSQL(partnerId, brandCd)}) first_ord ON s.user_id = first_ord.user_id
     GROUP BY month, buyer_type
     ORDER BY month
   `;
 }
+
+// 반품률은 매출 산식과 무관하게 전체 주문 상태를 본다(기존 그대로)
+const USERS = EXCLUDED_USER_IDS.map((v) => `'${v}'`).join(",");
 
 export function brandReturnRateSQL(partnerId: string, brandCd: string, start: Date, end: Date): string {
   const brand = mysql.escape(brandCd);
