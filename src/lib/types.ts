@@ -102,6 +102,16 @@ export interface BuyerTypeSummary {
   avg_order_value: number;
 }
 
+/** 브랜드별 신규/재구매 — 기준은 BuyerTypeSummary 와 같은 "이 위탁사에서의 첫 주문" */
+export interface BuyerTypeByBrand {
+  brand_cd: string;
+  brand_nm: string;
+  buyer_type: "new" | "repeat";
+  buyer_count: number;
+  total_sales: number;
+  order_count: number;
+}
+
 export interface BuyerMonthly {
   month: string;
   buyer_type: "new" | "repeat";
