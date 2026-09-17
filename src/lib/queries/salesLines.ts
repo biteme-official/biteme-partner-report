@@ -75,6 +75,7 @@ export function salesWhereSQL(f: SalesLineFilter): string {
   if (f.excludeRaffle !== false) conds.push(`op.product_nm NOT LIKE '%응모권%'`);
   if (f.partnerId !== undefined) conds.push(`p.supplier = ${Number(f.partnerId)}`);
   if (f.brandCd !== undefined) conds.push(`p.brand_cd = ${mysql.escape(f.brandCd)}`);
+  if (!!f.start !== !!f.end) throw new Error("start 와 end 는 함께 줘야 합니다");
   if (f.start && f.end) conds.push(`op.reg_date BETWEEN '${fmt(f.start)}' AND '${fmt(f.end)}'`);
   if (f.sinceExpr) conds.push(`op.reg_date >= ${f.sinceExpr}`);
   if (f.fromStr) conds.push(`op.reg_date >= '${f.fromStr}'`);
@@ -93,6 +94,10 @@ export function salesWhereSQL(f: SalesLineFilter): string {
  *   그 외 ocode·product_ocode·product_cd·product_nm·qty·reg_date·supplier·brand_cd·user_id
  */
 export function salesLinesSQL(f: SalesLineFilter): string {
+  // 🔴 브랜드 조건은 안분이 끝난 뒤(바깥)에 건다 — 안쪽에서 걸면 묶음 안에 그 브랜드 줄만 남아
+  //    비중 합이 1이 되고, 브랜드마다 배송비를 통째로 가져가 브랜드 합이 위탁사 합보다 커진다.
+  const outerWhere = f.brandCd !== undefined ? `WHERE l.brand_cd = ${mysql.escape(f.brandCd)}` : "";
+
   // 배송비는 묶음 안 줄마다 같은 값이 복사돼 있으니, 상품가 비중을 곱해 더하면 묶음당 정확히 1회가 된다.
   // supplier 는 product_trans_seq 가 비어 있는 옛 주문에서 다른 위탁사 줄과 섞이지 않게 하는 안전장치.
   const share = `IF(SUM(op.total_price) OVER w > 0,
@@ -129,9 +134,10 @@ export function salesLinesSQL(f: SalesLineFilter): string {
       JOIN wt_order_info oi ON op.ocode = oi.ocode
       JOIN wt_product p ON op.product_cd = p.product_cd
       LEFT JOIN wt_order_product_trans t ON t.product_ocode = op.product_ocode
-      WHERE ${salesWhereSQL(f)}
+      WHERE ${salesWhereSQL({ ...f, brandCd: undefined })}
       WINDOW w AS (PARTITION BY op.ocode, p.supplier, op.product_trans_seq)
     ) l
+    ${outerWhere}
   `;
 }
 

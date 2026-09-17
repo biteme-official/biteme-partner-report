@@ -7,6 +7,7 @@
 import { readFileSync } from "fs";
 import { queryBatch } from "../src/lib/db";
 import { partnerSalesSQL } from "../src/lib/queries/partners";
+import { fmt } from "../src/lib/queries/salesLines";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -39,7 +40,7 @@ const oldSQL = `
     AND op.product_order_state_cd NOT IN ('10','50','65','70','95','99')
     AND (oi.user_id IS NULL OR oi.user_id NOT IN ('ptest','ptest2','cafebiteme_SS','cafebiteme_YN','bite1008','cafebiteme_CG'))
     AND op.product_nm NOT LIKE '%응모권%'
-    AND op.reg_date BETWEEN '${from.toISOString().slice(0, 10)} 00:00:00' AND '${to.getFullYear()}-${String(to.getMonth() + 1).padStart(2, "0")}-${String(to.getDate()).padStart(2, "0")} ${String(to.getHours()).padStart(2, "0")}:${String(to.getMinutes()).padStart(2, "0")}:${String(to.getSeconds()).padStart(2, "0")}'
+    AND op.reg_date BETWEEN '${fmt(from)}' AND '${fmt(to)}'
   GROUP BY DATE(op.reg_date) ORDER BY sale_date`;
 
 interface Row { sale_date: Date | string; total_sales: string; gross_sales: string; coupon: string; reserve: string; deposit: string; trans: string; order_count: number }
@@ -47,7 +48,7 @@ interface OldRow { sale_date: Date | string; old_total: string }
 
 const t0 = Date.now();
 const [rows, oldRows] = await queryBatch<[Row[], OldRow[]]>([partnerSalesSQL(partner, from, to), oldSQL]);
-console.log(`partner ${partner}  ${from.toISOString().slice(0, 10)} ~ ${toArg ?? "now"}  (${Date.now() - t0}ms)`);
+console.log(`partner ${partner}  ${fmt(from)} ~ ${fmt(to)}  (${Date.now() - t0}ms)`);
 const oldMap = new Map(oldRows.map((r) => [String(r.sale_date).slice(0, 10), Number(r.old_total)]));
 const sum = { net: 0, gross: 0, coupon: 0, reserve: 0, deposit: 0, trans: 0, old: 0 };
 console.log("date        net_sales   gross   coupon reserve deposit  trans | old(total_price)");
