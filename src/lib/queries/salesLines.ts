@@ -21,6 +21,12 @@ import mysql from "mysql2/promise";
  *    ⚠️ ocode+supplier 로 묶으면 한 주문에 배송 묶음이 둘인 경우(product_trans_seq 가 다른 줄) 값이 어긋난다 —
  *       실측: 3줄 중 1줄만 3,500원인 주문이 있어 supplier 기준 안분은 2,117원 모자랐다.
  *
+ * 위탁사 기준 매출 (basis = "partner", 이슈 #63)
+ *   매출 = price + trans − partner_coupon
+ *   partner_coupon = wt_order_product.allocation_price — 그 줄 쿠폰 중 위탁사가 부담하는 몫.
+ *   바잇미 자체 쿠폰은 0, 공동 부담 쿠폰은 부담률(allocation_rate)만큼, 파트너 쿠폰은 전액이 들어 있다.
+ *   바잇미가 부담하는 쿠폰·적립금·예치금은 위탁사 매출에서 빼지 않는다.
+ *
  * 검증: 주식회사 펫생각(1502) 2026-09-01~ 재현 3,877,797 / 태블로 3,877,796 (일자별 ±3원, 안분 반올림 차이)
  * 태블로는 매일 11:30 갱신이라 당일 수치를 비교할 땐 reg_date < 당일 11:30 로 잘라야 한다.
  */
@@ -29,6 +35,17 @@ export const EXCLUDED_USER_IDS = [
   "ptest", "ptest2", "cafebiteme_SS", "cafebiteme_YN",
   "bite1008", "cafebiteme_CG",
 ];
+
+/**
+ * 어떤 매출을 `sales` / `total_sales` 로 낼지.
+ *   tableau — 태블로 실매출 (기본, 관리자용)
+ *   partner — 위탁사 기준 매출 (위탁사에게 보여 주는 화면·메일용)
+ */
+export type SalesBasis = "tableau" | "partner";
+
+export function parseSalesBasis(v: string | null | undefined): SalesBasis {
+  return v === "partner" ? "partner" : "tableau";
+}
 
 // 태블로 실매출 기준 주문 상태 — 결제완료·배송준비·배송중·구매확정
 export const SALES_ORDER_STATES = ["30", "35", "40", "90"];
@@ -58,6 +75,8 @@ export interface SalesLineFilter {
   memberOnly?: boolean;
   /** 응모권 상품 제외 여부 (기본 true) */
   excludeRaffle?: boolean;
+  /** `sales` 컬럼의 기준 (기본 tableau) */
+  basis?: SalesBasis;
 }
 
 /**
@@ -91,6 +110,9 @@ export function salesWhereSQL(f: SalesLineFilter): string {
  *   trans, trans_reserve, trans_deposit      — 배송비·배송비 적립금·예치금 (배송 묶음당 1회, 상품가 비중 안분)
  *   gross_sales = price + trans              — 태블로 매출액
  *   net_sales   = 태블로 실매출
+ *   partner_coupon                           — 쿠폰 중 위탁사 부담액
+ *   partner_sales = price + trans − partner_coupon — 위탁사 기준 매출
+ *   sales       = f.basis 에 따라 net_sales 또는 partner_sales (집계는 이 컬럼으로)
  *   그 외 ocode·product_ocode·product_cd·product_nm·qty·reg_date·supplier·brand_cd·user_id
  */
 export function salesLinesSQL(f: SalesLineFilter): string {
@@ -104,11 +126,16 @@ export function salesLinesSQL(f: SalesLineFilter): string {
         op.total_price / SUM(op.total_price) OVER w,
         1 / COUNT(*) OVER w)`;
 
+  const net = `(l.price + l.trans - l.coupon - l.reserve - l.deposit - l.trans_reserve - l.trans_deposit)`;
+  const partner = `(l.price + l.trans - l.partner_coupon)`;
+
   return `
     SELECT
       l.*,
       (l.price + l.trans) AS gross_sales,
-      (l.price + l.trans - l.coupon - l.reserve - l.deposit - l.trans_reserve - l.trans_deposit) AS net_sales
+      ${net} AS net_sales,
+      ${partner} AS partner_sales,
+      ${f.basis === "partner" ? partner : net} AS sales
     FROM (
       SELECT
         op.ocode,
@@ -125,6 +152,11 @@ export function salesLinesSQL(f: SalesLineFilter): string {
           WHEN op.coupon_use_yn = 'n' OR IFNULL(op.division_coupon_product_price, 0) < 5 THEN 0
           ELSE op.division_coupon_product_price
         END AS coupon,
+        -- 위탁사 부담분은 쿠폰으로 치는 줄에서만 (coupon 이 0 인 줄은 부담분도 0)
+        CASE
+          WHEN op.coupon_use_yn = 'n' OR IFNULL(op.division_coupon_product_price, 0) < 5 THEN 0
+          ELSE LEAST(IFNULL(op.allocation_price, 0), op.division_coupon_product_price)
+        END AS partner_coupon,
         IFNULL(op.division_reserve_product_price, 0) AS reserve,
         IFNULL(op.division_deposit_product_price, 0) AS deposit,
         ROUND((IFNULL(t.trans_price, 0) + IFNULL(t.add_trans_price, 0)) * ${share}) AS trans,
@@ -141,11 +173,12 @@ export function salesLinesSQL(f: SalesLineFilter): string {
   `;
 }
 
-/** 집계 쿼리에서 반복되는 매출 컬럼 묶음. 별칭 s 고정. */
+/** 집계 쿼리에서 반복되는 매출 컬럼 묶음. 별칭 s 고정. total_sales 는 basis 를 따른다. */
 export const SALES_AGG_COLUMNS = `
-      ROUND(SUM(s.net_sales)) AS total_sales,
+      ROUND(SUM(s.sales)) AS total_sales,
       ROUND(SUM(s.gross_sales)) AS gross_sales,
       ROUND(SUM(s.coupon)) AS coupon,
+      ROUND(SUM(s.partner_coupon)) AS partner_coupon,
       ROUND(SUM(s.reserve + s.trans_reserve)) AS reserve,
       ROUND(SUM(s.deposit + s.trans_deposit)) AS deposit,
       ROUND(SUM(s.trans)) AS trans`;

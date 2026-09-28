@@ -1,4 +1,4 @@
-import { salesLinesSQL, SALES_AGG_COLUMNS } from "./salesLines";
+import { salesLinesSQL, SALES_AGG_COLUMNS, type SalesBasis } from "./salesLines";
 
 // 매출은 전부 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59
 
@@ -69,7 +69,7 @@ export function partnerDetailSQL(partnerId: string): string {
   `;
 }
 
-export function partnerSalesSQL(partnerId: string, start: Date, end: Date): string {
+export function partnerSalesSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       DATE(s.reg_date) AS sale_date,
@@ -77,13 +77,13 @@ export function partnerSalesSQL(partnerId: string, start: Date, end: Date): stri
       COUNT(DISTINCT s.user_id) AS buyer_count,
       SUM(s.qty) AS total_qty,
       ${SALES_AGG_COLUMNS}
-    FROM (${salesLinesSQL({ partnerId, start, end })}) s
+    FROM (${salesLinesSQL({ partnerId, start, end, basis })}) s
     GROUP BY DATE(s.reg_date)
     ORDER BY sale_date
   `;
 }
 
-export function partnerHourlySalesSQL(partnerId: string, start: Date, end: Date): string {
+export function partnerHourlySalesSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       HOUR(s.reg_date) AS sale_hour,
@@ -91,13 +91,13 @@ export function partnerHourlySalesSQL(partnerId: string, start: Date, end: Date)
       COUNT(DISTINCT s.user_id) AS buyer_count,
       SUM(s.qty) AS total_qty,
       ${SALES_AGG_COLUMNS}
-    FROM (${salesLinesSQL({ partnerId, start, end })}) s
+    FROM (${salesLinesSQL({ partnerId, start, end, basis })}) s
     GROUP BY HOUR(s.reg_date)
     ORDER BY sale_hour
   `;
 }
 
-export function partnerProductsSQL(partnerId: string, start: Date, end: Date): string {
+export function partnerProductsSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       s.product_cd,
@@ -106,7 +106,7 @@ export function partnerProductsSQL(partnerId: string, start: Date, end: Date): s
       SUM(s.qty) AS total_qty,
       COUNT(DISTINCT s.ocode) AS order_count,
       ${SALES_AGG_COLUMNS}
-    FROM (${salesLinesSQL({ partnerId, start, end })}) s
+    FROM (${salesLinesSQL({ partnerId, start, end, basis })}) s
     LEFT JOIN wt_code2 c2 ON s.brand_cd = c2.code_cd2
     GROUP BY s.product_cd
     ORDER BY total_sales DESC

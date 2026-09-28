@@ -7,6 +7,7 @@ import {
   partnerProductsSQL,
   partnerBrandsSQL,
 } from "@/lib/queries/partners";
+import { parseSalesBasis } from "@/lib/queries/salesLines";
 import type { PartnerDetail, DailySales, HourlySales, ProductSales, BrandInfo } from "@/lib/types";
 
 export async function GET(
@@ -21,6 +22,8 @@ export async function GET(
 
   let start: Date, end: Date;
   const isHourly = searchParams.get("granularity") === "hourly";
+  // ?basis=partner — 위탁사 기준 매출(이슈 #63). 없으면 태블로 실매출
+  const basis = parseSalesBasis(searchParams.get("basis"));
 
   if (startDateParam && endDateParam) {
     start = new Date(startDateParam + "T00:00:00");
@@ -34,13 +37,13 @@ export async function GET(
 
   try {
     const salesSQL = isHourly
-      ? partnerHourlySalesSQL(id, start, end)
-      : partnerSalesSQL(id, start, end);
+      ? partnerHourlySalesSQL(id, start, end, basis)
+      : partnerSalesSQL(id, start, end, basis);
 
     const [detail, sales, products, brands] = await queryBatch<[PartnerDetail[], (DailySales | HourlySales)[], ProductSales[], BrandInfo[]]>([
       partnerDetailSQL(id),
       salesSQL,
-      partnerProductsSQL(id, start, end),
+      partnerProductsSQL(id, start, end, basis),
       partnerBrandsSQL(id),
     ]);
 
@@ -55,6 +58,7 @@ export async function GET(
       detail: detail[0],
       sales,
       granularity: isHourly ? "hourly" : "daily",
+      basis,
       products,
       brands,
       period: { start, end },

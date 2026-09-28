@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import { salesLinesSQL, SALES_AGG_COLUMNS } from "./salesLines";
+import { salesLinesSQL, SALES_AGG_COLUMNS, type SalesBasis } from "./salesLines";
 
 // 매출은 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59
 
@@ -44,7 +44,8 @@ export function integratedBrandListSQL(
   species: "all" | IntegratedSpecies,
   subCategory: string | null,
   start: Date,
-  end: Date
+  end: Date,
+  basis: SalesBasis = "tableau"
 ): string {
   const categoryFilter =
     species === "all"
@@ -63,7 +64,7 @@ export function integratedBrandListSQL(
       IFNULL(MAX(c2.code_nm2), s.brand_cd) AS brand_nm,
       COUNT(DISTINCT s.ocode) AS order_count,
       ${SALES_AGG_COLUMNS}
-    FROM (${salesLinesSQL({ start, end })}) s
+    FROM (${salesLinesSQL({ start, end, basis })}) s
     JOIN wt_admin a ON a.\`no\` = s.supplier
     LEFT JOIN wt_code2 c2 ON s.brand_cd = c2.code_cd2
     WHERE a.company_nm NOT LIKE '%바잇미%'

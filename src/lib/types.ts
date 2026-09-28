@@ -1,9 +1,14 @@
 export interface SalesBreakdown {
-  /** 태블로 실매출 = 매출액 − 쿠폰 − 적립금 − 예치금 */
+  /**
+   * 태블로 실매출 = 매출액 − 쿠폰 − 적립금 − 예치금.
+   * `?basis=partner` 로 부르면 위탁사 기준 매출 = 매출액 − 위탁사 부담 쿠폰 (이슈 #63)
+   */
   total_sales: number;
   /** 태블로 매출액 = 상품가 + 배송비 */
   gross_sales: number;
   coupon: number;
+  /** 쿠폰 중 위탁사 부담액 (wt_order_product.allocation_price) */
+  partner_coupon: number;
   reserve: number;
   deposit: number;
   trans: number;
