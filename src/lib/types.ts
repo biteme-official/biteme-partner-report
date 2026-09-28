@@ -171,6 +171,7 @@ export interface PartnerSalesWeekResponse {
 /** /api/wishes — 브랜드 찜 (brand_cd 는 매출 쪽과 같은 wt_code2.code_cd2) */
 export interface BrandWish {
   brand_cd: string;
+  brand_nm: string;
   /** 기간 안에 찜해서 아직 유지 중인 수 (해제하면 행이 지워져 빠짐) */
   period_wish: number;
   /** 지금 찜하고 있는 수 */
@@ -180,6 +181,7 @@ export interface BrandWish {
 /** /api/wishes — 위탁사별 기간 찜 상위 상품 */
 export interface ProductWish {
   partner_id: number;
+  partner_name: string;
   product_cd: string;
   product_nm: string;
   brand_cd: string;

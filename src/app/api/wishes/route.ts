@@ -33,11 +33,13 @@ export async function GET(req: NextRequest) {
       period: { start, end },
       brands: brands.map((b) => ({
         brand_cd: String(b.brand_cd),
+        brand_nm: String(b.brand_nm ?? b.brand_cd),
         period_wish: Number(b.period_wish) || 0,
         total_wish: Number(b.total_wish) || 0,
       })),
       products: products.map((p) => ({
         partner_id: Number(p.partner_id),
+        partner_name: String(p.partner_name ?? ""),
         product_cd: String(p.product_cd),
         product_nm: String(p.product_nm ?? ""),
         brand_cd: String(p.brand_cd ?? ""),

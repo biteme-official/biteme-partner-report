@@ -28,10 +28,12 @@ export function brandWishSQL(r: WishRange): string {
   return `
     SELECT
       b.brand_type_s AS brand_cd,
+      IFNULL(MAX(c.code_nm2), b.brand_type_s) AS brand_nm,
       CAST(SUM(CASE WHEN ${periodCond("w.reg_date", r)} THEN 1 ELSE 0 END) AS UNSIGNED) AS period_wish,
       COUNT(*) AS total_wish
     FROM wt_brand_wishlist w
     JOIN wt_brand b ON b.brand_seq = w.brand_cd AND b.use_yn = 'Y'
+    LEFT JOIN wt_code2 c ON c.code_cd2 = b.brand_type_s
     GROUP BY b.brand_type_s
   `;
 }
@@ -44,7 +46,7 @@ export function topProductWishSQL(r: WishRange, perPartner: number): string {
   const n = Math.max(1, Math.floor(perPartner));
   return `
     SELECT
-      t.partner_id, t.product_cd, t.product_nm, t.brand_cd, t.product_state, t.display_yn, t.period_wish,
+      t.partner_id, a.company_nm AS partner_name, t.product_cd, t.product_nm, t.brand_cd, t.product_state, t.display_yn, t.period_wish,
       (SELECT COUNT(*) FROM wt_wishlist w2 WHERE w2.product_cd = t.product_cd) AS total_wish
     FROM (
       SELECT
@@ -65,6 +67,7 @@ export function topProductWishSQL(r: WishRange, perPartner: number): string {
       JOIN wt_product p ON p.product_cd = wp.product_cd
       WHERE p.del_yn = 'n'
     ) t
+    LEFT JOIN wt_admin a ON a.\`no\` = t.partner_id
     WHERE t.rn <= ${n}
     ORDER BY t.partner_id, t.rn
   `;
