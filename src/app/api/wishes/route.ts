@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
         total_wish: Number(p.total_wish) || 0,
       })),
     };
-    return NextResponse.json(body);
+    // partner_id — 위탁사로 좁혀 응답했다는 표시. 받는 쪽(센터)은 이게 없으면 전체 브랜드가 섞인 옛 응답으로 보고 쓰지 않습니다
+    return NextResponse.json({ ...body, partner_id: partnerId ?? null });
   } catch (e) {
     console.error("Wishes error:", e);
     return NextResponse.json({ error: "Failed to fetch wishes" }, { status: 500 });
