@@ -13,7 +13,7 @@ export function partnerMonthlySalesByNameSQL(year: number): string {
       MIN(a.\`no\`) AS partner_id,
       MONTH(s.reg_date) AS month,
       COUNT(DISTINCT s.ocode) AS order_count,
-      ROUND(SUM(s.net_sales)) AS total_sales,
+      ROUND(SUM(s.sales)) AS total_sales,
       ROUND(SUM(s.gross_sales)) AS gross_sales
     FROM (${salesLinesSQL({ fromStr: `${year}-01-01 00:00:00`, toStr: `${year}-12-31 23:59:59` })}) s
     JOIN wt_admin a ON s.supplier = a.\`no\`
@@ -38,7 +38,7 @@ export function partnerWeeklySalesByNameSQL(weeks: WeekRange[]): string {
         ${cases}
       END AS week_no,
       COUNT(DISTINCT s.ocode) AS order_count,
-      ROUND(SUM(s.net_sales)) AS total_sales,
+      ROUND(SUM(s.sales)) AS total_sales,
       ROUND(SUM(s.gross_sales)) AS gross_sales
     FROM (${salesLinesSQL({
       fromStr: `${weeks[0].start} 00:00:00`,

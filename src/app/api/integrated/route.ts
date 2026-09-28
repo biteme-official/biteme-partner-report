@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { integratedBrandListSQL, subCategoriesFor } from "@/lib/queries/integrated";
 import type { IntegratedBrandSummary } from "@/lib/types";
+import { parseSalesBasis } from "@/lib/queries/salesLines";
 
 const PERIOD_DAYS = ["7", "30", "90"];
 
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
   const species = speciesParam === "dog" || speciesParam === "cat" ? speciesParam : "all";
   const subCategory = params.get("subCategory");
   const period = params.get("period") || "30";
+  // ?basis=partner — 위탁사 기준 매출(위탁사 부담 쿠폰만 차감, 이슈 #63). 없으면 태블로 실매출
+  const basis = parseSalesBasis(params.get("basis"));
 
   if (subCategory) {
     if (species === "all") {
@@ -56,9 +59,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const brands = await query<IntegratedBrandSummary>(
-      integratedBrandListSQL(species, subCategory, start, end)
+      integratedBrandListSQL(species, subCategory, start, end, basis)
     );
-    return NextResponse.json({ brands, period: { start, end } });
+    return NextResponse.json({ brands, basis, period: { start, end } });
   } catch (e) {
     console.error("Integrated brand list error:", e);
     return NextResponse.json(

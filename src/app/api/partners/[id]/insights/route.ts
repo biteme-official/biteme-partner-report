@@ -19,6 +19,7 @@ import type {
   BuyerMonthly,
 } from "@/lib/types";
 import { toDateStr } from "@/lib/date";
+import { parseSalesBasis } from "@/lib/queries/salesLines";
 
 export async function GET(
   req: NextRequest,
@@ -34,21 +35,24 @@ export async function GET(
   // 파트너 상세가 그 값을 기다리지 않게 `?include=byBrand` 일 때만 돕니다(PR #58 리뷰).
   const include = new Set((req.nextUrl.searchParams.get("include") ?? "").split(",").map((s) => s.trim()));
   const withByBrand = include.has("byBrand");
+  // ?basis=partner — 위탁사 기준 매출(이슈 #63). 없으면 태블로 실매출
+  const basis = parseSalesBasis(req.nextUrl.searchParams.get("basis"));
 
   try {
     const [monthly, weekly, growth, returnRate, buyerType, buyerMonthly, buyerTypeByBrand] = await queryBatch<
       [MonthlySales[], WeeklySales[], GrowthProduct[], ReturnRate[], BuyerTypeSummary[], BuyerMonthly[], BuyerTypeByBrand[]]
     >([
-      partnerMonthlySalesSQL(id, 6),
-      partnerWeeklySalesSQL(id, 12),
-      partnerTopGrowthProductsSQL(id),
+      partnerMonthlySalesSQL(id, 6, basis),
+      partnerWeeklySalesSQL(id, 12, basis),
+      partnerTopGrowthProductsSQL(id, basis),
       partnerReturnRateSQL(id, start, end),
-      partnerBuyerTypeSQL(id, start, end),
-      partnerBuyerMonthlySQL(id, 6),
-      ...(withByBrand ? [partnerBuyerTypeByBrandSQL(id, start, end)] : []),
+      partnerBuyerTypeSQL(id, start, end, basis),
+      partnerBuyerMonthlySQL(id, 6, basis),
+      ...(withByBrand ? [partnerBuyerTypeByBrandSQL(id, start, end, basis)] : []),
     ]);
 
     return NextResponse.json({
+      basis,
       monthly, weekly, growth,
       returnRate: returnRate[0] ?? null,
       buyerType,

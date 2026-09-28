@@ -1,8 +1,8 @@
-import { fmt, salesLinesSQL, salesWhereSQL, SALES_AGG_COLUMNS, EXCLUDED_USER_IDS } from "./salesLines";
+import { fmt, salesLinesSQL, salesWhereSQL, SALES_AGG_COLUMNS, EXCLUDED_USER_IDS, type SalesBasis } from "./salesLines";
 
 // 매출은 전부 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59
 
-export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6): string {
+export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
@@ -10,13 +10,13 @@ export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6
       COUNT(DISTINCT s.user_id) AS buyer_count,
       SUM(s.qty) AS total_qty,
       ${SALES_AGG_COLUMNS}
-    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)` })}) s
+    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)`, basis })}) s
     GROUP BY DATE_FORMAT(s.reg_date, '%Y-%m')
     ORDER BY month
   `;
 }
 
-export function partnerWeeklySalesSQL(partnerId: string, weeksBack: number = 12): string {
+export function partnerWeeklySalesSQL(partnerId: string, weeksBack: number = 12, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       YEARWEEK(s.reg_date, 1) AS year_week,
@@ -25,13 +25,13 @@ export function partnerWeeklySalesSQL(partnerId: string, weeksBack: number = 12)
       COUNT(DISTINCT s.user_id) AS buyer_count,
       SUM(s.qty) AS total_qty,
       ${SALES_AGG_COLUMNS}
-    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${weeksBack} WEEK)` })}) s
+    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${weeksBack} WEEK)`, basis })}) s
     GROUP BY YEARWEEK(s.reg_date, 1)
     ORDER BY year_week
   `;
 }
 
-export function partnerTopGrowthProductsSQL(partnerId: string): string {
+export function partnerTopGrowthProductsSQL(partnerId: string, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       product_cd,
@@ -45,14 +45,14 @@ export function partnerTopGrowthProductsSQL(partnerId: string): string {
         MAX(s.product_nm) AS product_nm,
         ROUND(SUM(CASE
           WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN s.net_sales ELSE 0
+          THEN s.sales ELSE 0
         END)) AS curr_sales,
         ROUND(SUM(CASE
           WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
             AND s.reg_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN s.net_sales ELSE 0
+          THEN s.sales ELSE 0
         END)) AS prev_sales
-      FROM (${salesLinesSQL({ partnerId, sinceExpr: "DATE_SUB(CURDATE(), INTERVAL 60 DAY)" })}) s
+      FROM (${salesLinesSQL({ partnerId, sinceExpr: "DATE_SUB(CURDATE(), INTERVAL 60 DAY)", basis })}) s
       GROUP BY s.product_cd
       HAVING curr_sales > 0 OR prev_sales > 0
     ) sub
@@ -75,7 +75,7 @@ function firstOrderSQL(partnerId: string): string {
   `;
 }
 
-export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date): string {
+export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       CASE
@@ -90,9 +90,9 @@ export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date): 
       SELECT
         s.user_id,
         MIN(first_ord.first_date) AS first_order_date,
-        SUM(s.net_sales) AS period_sales,
+        SUM(s.sales) AS period_sales,
         COUNT(DISTINCT s.ocode) AS period_orders
-      FROM (${salesLinesSQL({ partnerId, start, end, memberOnly: true })}) s
+      FROM (${salesLinesSQL({ partnerId, start, end, memberOnly: true, basis })}) s
       JOIN (${firstOrderSQL(partnerId)}) first_ord ON s.user_id = first_ord.user_id
       GROUP BY s.user_id
     ) buyer_summary
@@ -107,7 +107,7 @@ export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date): 
  * 첫 주문을 따로 잡으면 브랜드 합이 위탁사 합계와 안 맞습니다. 한 구매자가 기간 안에 두 브랜드를
  * 샀으면 두 브랜드 양쪽에 셉니다(brand_cd 별 GROUP BY).
  */
-export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: Date): string {
+export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       brand_cd,
@@ -125,9 +125,9 @@ export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: 
         s.brand_cd AS brand_cd,
         IFNULL(MAX(c2.code_nm2), s.brand_cd) AS brand_nm,
         MIN(first_ord.first_date) AS first_order_date,
-        SUM(s.net_sales) AS period_sales,
+        SUM(s.sales) AS period_sales,
         COUNT(DISTINCT s.ocode) AS period_orders
-      FROM (${salesLinesSQL({ partnerId, start, end, memberOnly: true })}) s
+      FROM (${salesLinesSQL({ partnerId, start, end, memberOnly: true, basis })}) s
       LEFT JOIN wt_code2 c2 ON s.brand_cd = c2.code_cd2
       JOIN (${firstOrderSQL(partnerId)}) first_ord ON s.user_id = first_ord.user_id
       GROUP BY s.user_id, s.brand_cd
@@ -137,7 +137,7 @@ export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: 
   `;
 }
 
-export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6): string {
+export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
@@ -148,8 +148,8 @@ export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6
         ELSE 'repeat'
       END AS buyer_type,
       COUNT(DISTINCT s.user_id) AS buyer_count,
-      ROUND(SUM(s.net_sales)) AS total_sales
-    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)`, memberOnly: true })}) s
+      ROUND(SUM(s.sales)) AS total_sales
+    FROM (${salesLinesSQL({ partnerId, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)`, memberOnly: true, basis })}) s
     JOIN (${firstOrderSQL(partnerId)}) first_ord ON s.user_id = first_ord.user_id
     GROUP BY month, buyer_type
     ORDER BY month

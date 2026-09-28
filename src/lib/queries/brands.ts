@@ -115,12 +115,12 @@ export function brandTopGrowthProductsSQL(partnerId: string, brandCd: string): s
         MAX(s.product_nm) AS product_nm,
         ROUND(SUM(CASE
           WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN s.net_sales ELSE 0
+          THEN s.sales ELSE 0
         END)) AS curr_sales,
         ROUND(SUM(CASE
           WHEN s.reg_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
             AND s.reg_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          THEN s.net_sales ELSE 0
+          THEN s.sales ELSE 0
         END)) AS prev_sales
       FROM (${salesLinesSQL({ partnerId, brandCd, sinceExpr: "DATE_SUB(CURDATE(), INTERVAL 60 DAY)" })}) s
       GROUP BY s.product_cd
@@ -160,7 +160,7 @@ export function brandBuyerTypeSQL(partnerId: string, brandCd: string, start: Dat
       SELECT
         s.user_id,
         MIN(first_ord.first_date) AS first_order_date,
-        SUM(s.net_sales) AS period_sales,
+        SUM(s.sales) AS period_sales,
         COUNT(DISTINCT s.ocode) AS period_orders
       FROM (${salesLinesSQL({ partnerId, brandCd, start, end, memberOnly: true })}) s
       JOIN (${brandFirstOrderSQL(partnerId, brandCd)}) first_ord ON s.user_id = first_ord.user_id
@@ -181,7 +181,7 @@ export function brandBuyerMonthlySQL(partnerId: string, brandCd: string, monthsB
         ELSE 'repeat'
       END AS buyer_type,
       COUNT(DISTINCT s.user_id) AS buyer_count,
-      ROUND(SUM(s.net_sales)) AS total_sales
+      ROUND(SUM(s.sales)) AS total_sales
     FROM (${salesLinesSQL({ partnerId, brandCd, sinceExpr: `DATE_SUB(CURDATE(), INTERVAL ${monthsBack} MONTH)`, memberOnly: true })}) s
     JOIN (${brandFirstOrderSQL(partnerId, brandCd)}) first_ord ON s.user_id = first_ord.user_id
     GROUP BY month, buyer_type
