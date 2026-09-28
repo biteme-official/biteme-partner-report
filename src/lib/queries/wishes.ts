@@ -18,7 +18,13 @@
 export interface WishRange {
   start: string;
   end: string;
+  /** 주면 그 위탁사 몫만 — 브랜드는 그 위탁사 상품에 걸린 브랜드, 상품은 그 위탁사 상품 (매출통계 위탁사 화면) */
+  partnerId?: number;
 }
+
+/** 위탁사 한 곳으로 좁히는 조건. 숫자로만 받습니다 */
+const partnerCond = (col: string, r: WishRange) =>
+  r.partnerId !== undefined ? `AND ${col} = ${Number(r.partnerId)}` : "";
 
 const periodCond = (col: string, r: WishRange) =>
   `${col} >= '${r.start} 00:00:00' AND ${col} < DATE_ADD('${r.end}', INTERVAL 1 DAY)`;
@@ -34,6 +40,11 @@ export function brandWishSQL(r: WishRange): string {
     FROM wt_brand_wishlist w
     JOIN wt_brand b ON b.brand_seq = w.brand_cd AND b.use_yn = 'Y'
     LEFT JOIN wt_code2 c ON c.code_cd2 = b.brand_type_s
+    ${
+      r.partnerId !== undefined
+        ? `WHERE b.brand_type_s IN (SELECT DISTINCT p.brand_cd FROM wt_product p WHERE p.del_yn = 'n' ${partnerCond("p.supplier", r)})`
+        : ""
+    }
     GROUP BY b.brand_type_s
   `;
 }
@@ -65,7 +76,7 @@ export function topProductWishSQL(r: WishRange, perPartner: number): string {
         GROUP BY product_cd
       ) wp
       JOIN wt_product p ON p.product_cd = wp.product_cd
-      WHERE p.del_yn = 'n'
+      WHERE p.del_yn = 'n' ${partnerCond("p.supplier", r)}
     ) t
     LEFT JOIN wt_admin a ON a.\`no\` = t.partner_id
     WHERE t.rn <= ${n}

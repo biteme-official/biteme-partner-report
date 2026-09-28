@@ -9,7 +9,8 @@ const MAX_TOP = 20;
 
 /**
  * 찜 집계 — 전체 위탁사 몫을 한 번에.
- *   GET /api/wishes?start=YYYY-MM-DD&end=YYYY-MM-DD[&top=5]
+ *   GET /api/wishes?start=YYYY-MM-DD&end=YYYY-MM-DD[&top=5][&partnerId=1351]
+ * partnerId 를 주면 그 위탁사 몫만 돌려줍니다(매출통계 위탁사 화면).
  * 정의와 키 맞추기는 `lib/queries/wishes.ts` 머리말을 보세요.
  */
 export async function GET(req: NextRequest) {
@@ -23,11 +24,16 @@ export async function GET(req: NextRequest) {
     );
   }
   const top = Math.min(MAX_TOP, Math.max(1, Number(params.get("top")) || 5));
+  const partnerParam = params.get("partnerId");
+  const partnerId = partnerParam === null ? undefined : Number(partnerParam);
+  if (partnerId !== undefined && (!Number.isInteger(partnerId) || partnerId <= 0)) {
+    return NextResponse.json({ error: "partnerId must be a positive integer" }, { status: 400 });
+  }
 
   try {
     const [brands, products] = await queryBatch<[BrandWish[], ProductWish[]]>([
-      brandWishSQL({ start, end }),
-      topProductWishSQL({ start, end }, top),
+      brandWishSQL({ start, end, partnerId }),
+      topProductWishSQL({ start, end, partnerId }, top),
     ]);
     const body: WishesResponse = {
       period: { start, end },
@@ -49,7 +55,8 @@ export async function GET(req: NextRequest) {
         total_wish: Number(p.total_wish) || 0,
       })),
     };
-    return NextResponse.json(body);
+    // partner_id — 위탁사로 좁혀 응답했다는 표시. 받는 쪽(센터)은 이게 없으면 전체 브랜드가 섞인 옛 응답으로 보고 쓰지 않습니다
+    return NextResponse.json({ ...body, partner_id: partnerId ?? null });
   } catch (e) {
     console.error("Wishes error:", e);
     return NextResponse.json({ error: "Failed to fetch wishes" }, { status: 500 });
