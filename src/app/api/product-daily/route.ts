@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { queryBatch } from "@/lib/db";
 import { cached } from "@/lib/cache";
 import { dailyTotalsSQL, productDailySalesSQL } from "@/lib/queries/productDaily";
+import { parseProductRange } from "@/lib/productRange";
 
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
-const PRODUCT_CD = /^[A-Za-z0-9_-]{1,40}$/;
-/** 기획전 한 개의 참여 상품 수 상한 — 10월 메인기획전이 6,467개였습니다 */
-const MAX_PRODUCTS = 10000;
-/** 한 번에 볼 수 있는 일수 — 기획전 기간 + 직전 비교 구간이면 충분합니다 */
-const MAX_DAYS = 120;
 /** 같은 조건 재조회는 10분 동안 메모리에서 — 탭을 오갈 때마다 운영 DB 를 두드리지 않게 */
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -28,9 +23,6 @@ interface TotalRow {
   promo_orders: number | string;
 }
 
-const days = (start: string, end: string) =>
-  Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
-
 /**
  * 상품 묶음의 일자별 매출 — 프로모션 센터 「기획전 성과」 탭.
  *   POST /api/product-daily  { start: "YYYY-MM-DD", end: "YYYY-MM-DD", productCds: string[] }
@@ -44,33 +36,10 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "JSON body is required" }, { status: 400 });
   }
-  const start = String(body.start ?? "");
-  const end = String(body.end ?? "");
-  if (!YMD.test(start) || !YMD.test(end) || end < start) {
-    return NextResponse.json(
-      { error: "start, end (YYYY-MM-DD, start ≤ end) are required" },
-      { status: 400 }
-    );
-  }
-  if (days(start, end) > MAX_DAYS) {
-    return NextResponse.json({ error: `period must be ${MAX_DAYS} days or less` }, { status: 400 });
-  }
-  if (!Array.isArray(body.productCds)) {
-    return NextResponse.json({ error: "productCds must be an array" }, { status: 400 });
-  }
-  const productCds = [...new Set(body.productCds.map((c) => String(c).trim()))].filter(Boolean);
-  if (!productCds.length || productCds.length > MAX_PRODUCTS) {
-    return NextResponse.json(
-      { error: `productCds must have 1~${MAX_PRODUCTS} items` },
-      { status: 400 }
-    );
-  }
-  const bad = productCds.find((c) => !PRODUCT_CD.test(c));
-  if (bad) {
-    return NextResponse.json({ error: `invalid product code "${bad}"` }, { status: 400 });
-  }
-
-  const range = { start, end, productCds: productCds.sort() };
+  const parsed = parseProductRange(body);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const range = parsed.range;
+  const { start, end } = range;
   const key = `product-daily:${start}:${end}:${range.productCds.join(",")}`;
 
   try {
