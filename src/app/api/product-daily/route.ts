@@ -13,6 +13,7 @@ interface ProductRow {
   order_count: number | string;
   qty: number | string;
   sales: number | string;
+  partner_sales: number | string;
 }
 
 interface TotalRow {
@@ -21,6 +22,7 @@ interface TotalRow {
   site_orders: number | string;
   promo_sales: number | string;
   promo_orders: number | string;
+  promo_partner_sales: number | string;
 }
 
 /**
@@ -28,6 +30,7 @@ interface TotalRow {
  *   POST /api/product-daily  { start: "YYYY-MM-DD", end: "YYYY-MM-DD", productCds: string[] }
  * 상품 코드가 수천 개라 쿼리스트링에 담을 수 없어 POST 로 받습니다(조회 전용).
  * 응답의 products 는 매출이 있는 (상품, 일자)만 담고, totals 는 주문이 있는 날마다 한 줄입니다.
+ * sales·promo_sales 는 태블로 실매출, partner_sales·promo_partner_sales 는 거래액(위탁사 기준, #73)입니다.
  */
 export async function POST(req: NextRequest) {
   let body: { start?: unknown; end?: unknown; productCds?: unknown };
@@ -40,7 +43,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const range = parsed.range;
   const { start, end } = range;
-  const key = `product-daily:${start}:${end}:${range.productCds.join(",")}`;
+  const key = `product-daily:v2:${start}:${end}:${range.productCds.join(",")}`;
 
   try {
     const data = await cached(key, CACHE_TTL_MS, async () => {
@@ -56,6 +59,7 @@ export async function POST(req: NextRequest) {
           order_count: Number(r.order_count) || 0,
           qty: Number(r.qty) || 0,
           sales: Number(r.sales) || 0,
+          partner_sales: Number(r.partner_sales) || 0,
         })),
         totals: totals.map((r) => ({
           date: String(r.d),
@@ -63,6 +67,7 @@ export async function POST(req: NextRequest) {
           site_orders: Number(r.site_orders) || 0,
           promo_sales: Number(r.promo_sales) || 0,
           promo_orders: Number(r.promo_orders) || 0,
+          promo_partner_sales: Number(r.promo_partner_sales) || 0,
         })),
       };
     });
