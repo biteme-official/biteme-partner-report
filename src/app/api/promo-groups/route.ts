@@ -4,6 +4,10 @@ import { cached } from "@/lib/cache";
 import {
   brandGroupStatsSQL,
   groupInfoSQL,
+  groupKind,
+  OWN_PARTNER_ID,
+  ownBrandDailySQL,
+  ownBrandSalesSQL,
   promoGroupBrandsSQL,
   promoGroupsSQL,
 } from "@/lib/queries/promoGroups";
@@ -38,6 +42,7 @@ interface GroupRow {
   e: string;
   products: number | string;
   brands: number | string;
+  own_products: number | string;
 }
 
 interface BrandStatRow {
@@ -51,16 +56,20 @@ interface BrandStatRow {
   max_rate: number | string | null;
 }
 
-const group = (r: GroupRow) => ({
-  group_cd: Number(r.group_cd),
-  name: String(r.group_nm ?? ""),
-  list_type: r.list_type ?? null,
-  start: r.s,
-  end: r.e,
-  /** 위탁 상품·브랜드만 셉니다 */
-  products: num(r.products),
-  brands: num(r.brands),
-});
+const group = (minBrands: number) => (r: GroupRow) => {
+  const size = { products: num(r.products), brands: num(r.brands), own_products: num(r.own_products) };
+  return {
+    group_cd: Number(r.group_cd),
+    name: String(r.group_nm ?? ""),
+    list_type: r.list_type ?? null,
+    start: r.s,
+    end: r.e,
+    /** products·brands 는 위탁 상품·브랜드만, own_products 는 바잇미 자체 상품 수 */
+    ...size,
+    /** main = 위탁 브랜드 minBrands 곳 이상 · pb = 자체 상품 기획전 · null = 그 밖(브랜드위크 등) */
+    kind: groupKind(size, minBrands),
+  };
+};
 
 const brandStat = (r: BrandStatRow) => ({
   group_cd: Number(r.group_cd),
@@ -69,6 +78,8 @@ const brandStat = (r: BrandStatRow) => ({
   partner_id: Number(r.partner_id),
   partner_name: String(r.partner_name ?? ""),
   products: num(r.products),
+  /** 바잇미 자체 상품 — partner_id 0 「바잇미 자체」로 묶여 옵니다 */
+  own: Number(r.partner_id) === OWN_PARTNER_ID,
   /** 전시 기간 중 가장 낮았던 판매가의 정가 대비 할인율(%) — 가격 로그가 없으면 null */
   avg_rate: rate(r.avg_rate),
   max_rate: rate(r.max_rate),
@@ -77,11 +88,15 @@ const brandStat = (r: BrandStatRow) => ({
 /**
  * 기획전 전시 이력 — 프로모션 센터 「기획전 비교」. `Authorization: Bearer $PROMO_GROUPS_TOKEN` 필수.
  *   GET /api/promo-groups?start&end[&minBrands=20]
- *     위탁 브랜드가 minBrands 곳 이상인 전시(메인급 후보) 목록. 빠릅니다.
+ *     위탁 브랜드가 minBrands 곳 이상인 전시(메인급 후보)와 PB 기획전(자체 상품 기획전) 목록. 빠릅니다.
  *   GET /api/promo-groups?start&end&stats=1[&minBrands=20]   (기간 92일 이하)
- *     위 목록 + 전시마다 브랜드별 참여 상품 수·할인율
- *   GET /api/promo-groups?start&end&brandCd=9000671
- *     그 브랜드가 올라간 모든 전시(브랜드위크 포함)와 전시마다 그 브랜드의 상품 수·할인율
+ *     위 목록 + 전시마다 브랜드별 참여 상품 수·할인율 (자체 상품은 partner_id 0, own: true)
+ *   GET /api/promo-groups?start&end&brandCd=9000671[&own=1]
+ *     그 브랜드가 올라간 모든 전시(브랜드위크 포함)와 전시마다 그 브랜드의 상품 수·할인율.
+ *     own=1 이면 바잇미 자체 상품(partner_id 0), 아니면 위탁 상품
+ *   GET /api/promo-groups?start&end&ownSales=1[&brandCd=…]
+ *     바잇미 자체 상품 매출 — 브랜드별 합계(/api/integrated 행 모양) 또는 brandCd 를 주면 그 브랜드 일별
+ *     (/api/partners/{no}/brands/{cd} 의 sales 모양). 다른 매출 API 는 자체 계정을 빼서 PB 기획전용으로 둡니다.
  * 할인율 산식은 src/lib/queries/promoGroups.ts.
  */
 export async function GET(req: NextRequest) {
@@ -107,24 +122,38 @@ export async function GET(req: NextRequest) {
   const range = { start, end };
   const ttl = end >= kstToday() ? LIVE_CACHE_TTL_MS : CACHE_TTL_MS;
   const brandCd = params.get("brandCd");
+  if (brandCd !== null && !BRAND_CD.test(brandCd)) {
+    return NextResponse.json({ error: "invalid brandCd" }, { status: 400 });
+  }
+  const minBrands = Math.max(1, Math.min(200, Number(params.get("minBrands")) || DEFAULT_MIN_BRANDS));
 
   try {
-    if (brandCd !== null) {
-      if (!BRAND_CD.test(brandCd)) {
-        return NextResponse.json({ error: "invalid brandCd" }, { status: 400 });
+    if (params.get("ownSales") === "1") {
+      const from = new Date(`${start}T00:00:00`);
+      const to = new Date(`${end}T23:59:59`);
+      if (brandCd !== null) {
+        const sales = await cached(`promo-groups:own-daily:${start}:${end}:${brandCd}`, ttl, () =>
+          query(ownBrandDailySQL(brandCd, from, to))
+        );
+        return NextResponse.json({ period: range, brandCd, sales });
       }
-      const data = await cached(`promo-groups:brand:${start}:${end}:${brandCd}`, ttl, async () => {
-        const brands = await query<BrandStatRow>(brandGroupStatsSQL(range, brandCd));
+      const brands = await cached(`promo-groups:own-sales:${start}:${end}`, ttl, () => query(ownBrandSalesSQL(from, to)));
+      return NextResponse.json({ period: range, brands });
+    }
+
+    if (brandCd !== null) {
+      const own = params.get("own") === "1";
+      const data = await cached(`promo-groups:brand:${start}:${end}:${brandCd}:${own ? 1 : 0}`, ttl, async () => {
+        const brands = await query<BrandStatRow>(brandGroupStatsSQL(range, brandCd, own));
         const groups = brands.length
           ? await query<GroupRow>(groupInfoSQL([...new Set(brands.map((b) => Number(b.group_cd)))]))
           : [];
-        return { period: range, brandCd, groups: groups.map(group), brands: brands.map(brandStat) };
+        return { period: range, brandCd, own, groups: groups.map(group(minBrands)), brands: brands.map(brandStat) };
       });
       return NextResponse.json(data);
     }
 
-    const minBrands = Math.max(1, Math.min(200, Number(params.get("minBrands")) || DEFAULT_MIN_BRANDS));
-    const data = await cached(`promo-groups:${start}:${end}:${minBrands}:${stats ? 1 : 0}`, ttl, async () => {
+    const data = await cached(`promo-groups:v2:${start}:${end}:${minBrands}:${stats ? 1 : 0}`, ttl, async () => {
       const groups = await query<GroupRow>(promoGroupsSQL(range, minBrands));
       const brands =
         stats && groups.length
@@ -133,7 +162,7 @@ export async function GET(req: NextRequest) {
       return {
         period: range,
         minBrands,
-        groups: groups.map(group),
+        groups: groups.map(group(minBrands)),
         ...(stats ? { brands: brands.map(brandStat) } : {}),
       };
     });
