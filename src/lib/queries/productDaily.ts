@@ -6,7 +6,8 @@ import { salesLinesSQL } from "./salesLines";
  *
  * 기획전에 참여한 상품 코드 목록을 받아, 그 상품들의 하루하루 매출과 같은 날 사이트 전체 매출을
  * 함께 돌려줍니다(기획전 매출 비중을 내는 분모). 매출은 다른 화면과 같은 태블로 실매출 산식입니다
- * (salesLines.ts).
+ * (salesLines.ts). 거래액(위탁사 기준 `partner_sales`, 이슈 #73)도 같은 줄에서 함께 접습니다 —
+ * 프로모션 센터 기획전 비교가 실매출과 나란히 봅니다.
  *
  * 🔴 상품 조건은 **안분이 끝난 바깥에서** 겁니다. 안쪽에서 걸면 배송 묶음 안에 참여 상품 줄만 남아
  *    배송비를 통째로 가져갑니다(salesLines.ts 의 브랜드 조건과 같은 이유).
@@ -33,7 +34,8 @@ export function productDailySalesSQL(r: ProductDailyRange): string {
       s.product_cd,
       COUNT(DISTINCT s.ocode) AS order_count,
       SUM(s.qty) AS qty,
-      ROUND(SUM(s.sales)) AS sales
+      ROUND(SUM(s.sales)) AS sales,
+      ROUND(SUM(s.partner_sales)) AS partner_sales
     FROM (${lines(r)}) s
     WHERE s.product_cd IN (${inList(r)})
     GROUP BY d, s.product_cd
@@ -53,6 +55,7 @@ export function dailyTotalsSQL(r: ProductDailyRange): string {
       ROUND(SUM(s.sales)) AS site_sales,
       COUNT(DISTINCT s.ocode) AS site_orders,
       ROUND(SUM(IF(s.product_cd IN (${inList(r)}), s.sales, 0))) AS promo_sales,
+      ROUND(SUM(IF(s.product_cd IN (${inList(r)}), s.partner_sales, 0))) AS promo_partner_sales,
       COUNT(DISTINCT IF(s.product_cd IN (${inList(r)}), s.ocode, NULL)) AS promo_orders
     FROM (${lines(r)}) s
     GROUP BY d
