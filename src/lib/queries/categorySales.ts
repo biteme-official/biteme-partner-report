@@ -102,18 +102,22 @@ export function categoryProductSalesSQL(r: CategorySalesRange): string {
 
 /**
  * 주문 수 — 상품별 주문 수를 더하면 한 주문에 상품이 둘인 경우를 두 번 셉니다. 그래서 주문 번호로 따로 셉니다.
- * level: all 전체 · major 대분류(NULL = 미지정) · mid 대분류 × 중분류
+ * level: all 전체 · major 대분류(NULL = 미지정) · mid 대분류 × 중분류.
+ * 운영 DB 는 GROUPING() 을 못 써(ER_PROCACCESS_DENIED) WITH ROLLUP 대신 UNION ALL 로 셉니다.
  */
 export function categoryOrderCountsSQL(r: CategorySalesRange): string {
   return `
     ${withLines(r)}
-    SELECT
-      CASE WHEN GROUPING(asg.major) = 1 THEN 'all' WHEN GROUPING(asg.mid) = 1 THEN 'major' ELSE 'mid' END AS level,
-      asg.major,
-      asg.mid,
-      COUNT(DISTINCT s.ocode) AS order_count
+    SELECT 'all' AS level, NULL AS major, NULL AS mid, COUNT(DISTINCT s.ocode) AS order_count
     ${FROM}
-    GROUP BY asg.major, asg.mid WITH ROLLUP
+    UNION ALL
+    SELECT 'major', asg.major, NULL, COUNT(DISTINCT s.ocode)
+    ${FROM}
+    GROUP BY asg.major
+    UNION ALL
+    SELECT 'mid', asg.major, asg.mid, COUNT(DISTINCT s.ocode)
+    ${FROM}
+    GROUP BY asg.major, asg.mid
   `;
 }
 
