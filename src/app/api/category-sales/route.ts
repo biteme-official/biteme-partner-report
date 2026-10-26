@@ -76,12 +76,20 @@ export async function GET(req: NextRequest) {
   }
   const range = { start, end };
   if (params.get("debug") === "columns") {
-    const [a, b, c] = await queryBatch<[unknown[], unknown[], unknown[]]>([
-      "SHOW COLUMNS FROM wt_product_category",
-      "SHOW COLUMNS FROM wt_category",
-      "SELECT * FROM wt_product_category WHERE product_cd IN (SELECT product_cd FROM wt_product_category WHERE category1_cd = '031004' LIMIT 3)",
-    ]);
-    return NextResponse.json({ a, b, c });
+    const out: Record<string, unknown> = {};
+    const qs: Record<string, string> = {
+      cols: "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('wt_product_category','wt_category') ORDER BY TABLE_NAME, ORDINAL_POSITION",
+      sample: "SELECT pc.* FROM wt_product_category pc JOIN (SELECT DISTINCT product_cd FROM wt_product_category WHERE category1_cd = '031004' ORDER BY product_cd DESC LIMIT 3) x ON x.product_cd = pc.product_cd",
+      catSample: "SELECT * FROM wt_category WHERE category_cd LIKE '031004%' LIMIT 5",
+    };
+    for (const [k, q] of Object.entries(qs)) {
+      try {
+        out[k] = (await queryBatch<[unknown[]]>([q]))[0];
+      } catch (e) {
+        out[k] = String((e as { sqlMessage?: string }).sqlMessage ?? e);
+      }
+    }
+    return NextResponse.json(out);
   }
   const ttl = end >= kstToday() ? LIVE_CACHE_TTL_MS : CACHE_TTL_MS;
 
