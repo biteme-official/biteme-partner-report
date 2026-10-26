@@ -75,6 +75,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `period must be ${MAX_DAYS} days or less` }, { status: 400 });
   }
   const range = { start, end };
+  if (params.get("debug") === "columns") {
+    const [a, b, c] = await queryBatch<[unknown[], unknown[], unknown[]]>([
+      "SHOW COLUMNS FROM wt_product_category",
+      "SHOW COLUMNS FROM wt_category",
+      "SELECT * FROM wt_product_category WHERE product_cd IN (SELECT product_cd FROM wt_product_category WHERE category1_cd = '031004' LIMIT 3)",
+    ]);
+    return NextResponse.json({ a, b, c });
+  }
   const ttl = end >= kstToday() ? LIVE_CACHE_TTL_MS : CACHE_TTL_MS;
 
   try {
