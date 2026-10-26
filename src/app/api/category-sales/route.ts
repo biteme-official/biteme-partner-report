@@ -114,6 +114,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (e) {
     console.error("Category sales error:", e);
-    return NextResponse.json({ error: "카테고리별 매출을 불러오지 못했습니다" }, { status: 500 });
+    const err = e as { code?: string; sqlMessage?: string };
+    return NextResponse.json({ error: "카테고리별 매출을 불러오지 못했습니다", debug: `${err.code ?? ""} ${err.sqlMessage ?? ""}` }, { status: 500 });
   }
 }
