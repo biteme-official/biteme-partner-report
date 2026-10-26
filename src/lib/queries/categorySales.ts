@@ -15,7 +15,8 @@ import { majorCodes } from "../categoryMajors";
  *      2. 상품 pet_type(001 강아지 · 002 고양이)에 맞는 대상 대분류 연결 중 코드가 가장 작은 것
  *      3. 대상 대분류 연결 중 코드가 가장 작은 것
  *      4. 없으면 NULL — 「카테고리 미지정」
- *    중분류(category2_cd)는 고른 대분류 아래 연결 중 대표 줄을 먼저, 없으면 코드가 가장 작은 것.
+ *    중분류(category2_cd, 9자리)는 고른 대분류 아래 **중분류가 채워진** 연결 중 대표 줄을 먼저, 없으면 코드가 가장 작은 것.
+ *    대표 줄은 category2_cd 가 빈 문자열인 경우가 많아, 빈 줄을 먼저 고르면 중분류가 거의 다 비어 버립니다.
  *
  * 상품 조건이 없으므로 안분은 salesLines 그대로입니다(배송비는 상품 줄마다 이미 나뉘어 있음).
  */
@@ -56,11 +57,12 @@ function withLines(r: CategorySalesRange): string {
         k.product_cd,
         k.major,
         k.repre_major,
-        NULLIF(SUBSTRING(MIN(
-          IF(pc.category1_cd = k.major,
-            CONCAT(IF(pc.repre_category_yn = 'Y', '0', '1'), IFNULL(NULLIF(pc.category2_cd, ''), '~')),
+        -- 정렬 열쇠: 중분류가 있는 줄 먼저(대표 줄은 category2_cd 가 빈 경우가 많음) → 대표 줄 → 코드
+        SUBSTRING(MIN(
+          IF(pc.category1_cd = k.major AND LEFT(pc.category2_cd, 6) = k.major,
+            CONCAT(IF(pc.repre_category_yn = 'Y', '0', '1'), pc.category2_cd),
             NULL)
-        ), 2), '~') AS mid
+        ), 2) AS mid
       FROM pick k
       JOIN wt_product_category pc ON pc.product_cd = k.product_cd
       GROUP BY k.product_cd, k.major, k.repre_major
@@ -124,7 +126,7 @@ export function categoryOrderCountsSQL(r: CategorySalesRange): string {
 /** 카테고리 이름 — 대분류(6자리) 전부와 대상 대분류의 중분류(9자리) */
 export function categoryNamesSQL(): string {
   return `
-    SELECT category_cd, category_nm, pet_type
+    SELECT category_cd, category_nm, pet_type, IF(use_yn = 'Y' AND IFNULL(del_yn, 'N') <> 'Y', 1, 0) AS active
     FROM wt_category
     WHERE CHAR_LENGTH(category_cd) = 6
        OR (CHAR_LENGTH(category_cd) = 9 AND LEFT(category_cd, 6) IN (${inList(majorCodes())}))
