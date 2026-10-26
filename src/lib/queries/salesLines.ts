@@ -75,13 +75,15 @@ export interface SalesLineFilter {
   memberOnly?: boolean;
   /** 응모권 상품 제외 여부 (기본 true) */
   excludeRaffle?: boolean;
+  /** 상품가 0원 줄(체험단·증정품) 제외 여부 (기본 true, 이슈 #81) */
+  excludeZeroPrice?: boolean;
   /** `sales` 컬럼의 기준 (기본 tableau) */
   basis?: SalesBasis;
 }
 
 /**
  * 모든 매출 쿼리가 공유하는 WHERE 절. 별칭은 op / oi / p 고정.
- * 기존 제외 규칙(테스트 계정·응모권·order_yn)은 유지하고, 상태만 태블로 기준 IN 으로 바꿨다.
+ * 기존 제외 규칙(테스트 계정·응모권·상품가 0원·order_yn)은 유지하고, 상태만 태블로 기준 IN 으로 바꿨다.
  */
 export function salesWhereSQL(f: SalesLineFilter): string {
   const conds = [
@@ -92,6 +94,9 @@ export function salesWhereSQL(f: SalesLineFilter): string {
       : `(oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))`,
   ];
   if (f.excludeRaffle !== false) conds.push(`op.product_nm NOT LIKE '%응모권%'`);
+  // 체험단·증정품은 상품가 0원 줄로 들어온다 — 돈을 받지 않았으니 주문 수·수량·구매자에서도 뺀다(#81).
+  // 0원 줄은 배송비 안분 비중도 0이라 거래액은 그대로이고, 줄이 전부 0원인 묶음의 배송비만 빠진다.
+  if (f.excludeZeroPrice !== false) conds.push(`op.total_price > 0`);
   if (f.partnerId !== undefined) conds.push(`p.supplier = ${Number(f.partnerId)}`);
   if (f.brandCd !== undefined) conds.push(`p.brand_cd = ${mysql.escape(f.brandCd)}`);
   if (!!f.start !== !!f.end) throw new Error("start 와 end 는 함께 줘야 합니다");
