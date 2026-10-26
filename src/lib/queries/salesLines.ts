@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { isOwnScope, scopeBrandSQL, scopeSupplierSQL, type PartnerScope } from "./partnerScope";
 
 /**
  * 태블로 실매출 재현용 공통 주문 라인 뷰 (이슈 #59).
@@ -59,8 +60,8 @@ export function fmt(d: Date): string {
 }
 
 export interface SalesLineFilter {
-  /** wt_product.supplier */
-  partnerId?: string | number;
+  /** wt_product.supplier — 위탁사 하나, 또는 바잇미 자체 + 브랜드 범위(#83, partnerScope.ts) */
+  partnerId?: PartnerScope;
   /** wt_product.brand_cd */
   brandCd?: string;
   /** op.reg_date BETWEEN start AND end */
@@ -92,7 +93,11 @@ export function salesWhereSQL(f: SalesLineFilter): string {
       : `(oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))`,
   ];
   if (f.excludeRaffle !== false) conds.push(`op.product_nm NOT LIKE '%응모권%'`);
-  if (f.partnerId !== undefined) conds.push(`p.supplier = ${Number(f.partnerId)}`);
+  if (f.partnerId !== undefined) {
+    conds.push(scopeSupplierSQL(f.partnerId, "p.supplier"));
+    const brand = scopeBrandSQL(f.partnerId, "p.brand_cd");
+    if (brand) conds.push(brand);
+  }
   if (f.brandCd !== undefined) conds.push(`p.brand_cd = ${mysql.escape(f.brandCd)}`);
   if (!!f.start !== !!f.end) throw new Error("start 와 end 는 함께 줘야 합니다");
   if (f.start && f.end) conds.push(`op.reg_date BETWEEN '${fmt(f.start)}' AND '${fmt(f.end)}'`);
@@ -118,7 +123,13 @@ export function salesWhereSQL(f: SalesLineFilter): string {
 export function salesLinesSQL(f: SalesLineFilter): string {
   // 🔴 브랜드 조건은 안분이 끝난 뒤(바깥)에 건다 — 안쪽에서 걸면 묶음 안에 그 브랜드 줄만 남아
   //    비중 합이 1이 되고, 브랜드마다 배송비를 통째로 가져가 브랜드 합이 위탁사 합보다 커진다.
-  const outerWhere = f.brandCd !== undefined ? `WHERE l.brand_cd = ${mysql.escape(f.brandCd)}` : "";
+  //    바잇미 자체 범위(#83)의 브랜드 조건도 같은 이유로 바깥에 겁니다.
+  const outer = [
+    ...(f.brandCd !== undefined ? [`l.brand_cd = ${mysql.escape(f.brandCd)}`] : []),
+    ...(f.partnerId !== undefined ? [scopeBrandSQL(f.partnerId, "l.brand_cd")].filter((c): c is string => !!c) : []),
+  ];
+  const outerWhere = outer.length ? `WHERE ${outer.join(" AND ")}` : "";
+  const innerScope: PartnerScope | undefined = f.partnerId !== undefined && isOwnScope(f.partnerId) ? { own: true } : f.partnerId;
 
   // 배송비는 묶음 안 줄마다 같은 값이 복사돼 있으니, 상품가 비중을 곱해 더하면 묶음당 정확히 1회가 된다.
   // supplier 는 product_trans_seq 가 비어 있는 옛 주문에서 다른 위탁사 줄과 섞이지 않게 하는 안전장치.
@@ -166,7 +177,7 @@ export function salesLinesSQL(f: SalesLineFilter): string {
       JOIN wt_order_info oi ON op.ocode = oi.ocode
       JOIN wt_product p ON op.product_cd = p.product_cd
       LEFT JOIN wt_order_product_trans t ON t.product_ocode = op.product_ocode
-      WHERE ${salesWhereSQL({ ...f, brandCd: undefined })}
+      WHERE ${salesWhereSQL({ ...f, brandCd: undefined, partnerId: innerScope })}
       WINDOW w AS (PARTITION BY op.ocode, p.supplier, op.product_trans_seq)
     ) l
     ${outerWhere}

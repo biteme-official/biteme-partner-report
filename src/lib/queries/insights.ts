@@ -1,8 +1,9 @@
+import { scopeProductSQL, type PartnerScope } from "./partnerScope";
 import { fmt, salesLinesSQL, salesWhereSQL, SALES_AGG_COLUMNS, EXCLUDED_USER_IDS, type SalesBasis } from "./salesLines";
 
 // 매출은 전부 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59
 
-export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6, basis: SalesBasis = "tableau"): string {
+export function partnerMonthlySalesSQL(partnerId: PartnerScope, monthsBack: number = 6, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
@@ -16,7 +17,7 @@ export function partnerMonthlySalesSQL(partnerId: string, monthsBack: number = 6
   `;
 }
 
-export function partnerWeeklySalesSQL(partnerId: string, weeksBack: number = 12, basis: SalesBasis = "tableau"): string {
+export function partnerWeeklySalesSQL(partnerId: PartnerScope, weeksBack: number = 12, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       YEARWEEK(s.reg_date, 1) AS year_week,
@@ -31,7 +32,7 @@ export function partnerWeeklySalesSQL(partnerId: string, weeksBack: number = 12,
   `;
 }
 
-export function partnerTopGrowthProductsSQL(partnerId: string, basis: SalesBasis = "tableau"): string {
+export function partnerTopGrowthProductsSQL(partnerId: PartnerScope, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       product_cd,
@@ -62,7 +63,7 @@ export function partnerTopGrowthProductsSQL(partnerId: string, basis: SalesBasis
 }
 
 // "이 위탁사에서의 첫 주문" — 상태·계정 제외 규칙은 매출과 같고, 응모권만 기존처럼 안 뺀다
-function firstOrderSQL(partnerId: string): string {
+function firstOrderSQL(partnerId: PartnerScope): string {
   return `
     SELECT
       oi.user_id,
@@ -75,7 +76,7 @@ function firstOrderSQL(partnerId: string): string {
   `;
 }
 
-export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
+export function partnerBuyerTypeSQL(partnerId: PartnerScope, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       CASE
@@ -107,7 +108,7 @@ export function partnerBuyerTypeSQL(partnerId: string, start: Date, end: Date, b
  * 첫 주문을 따로 잡으면 브랜드 합이 위탁사 합계와 안 맞습니다. 한 구매자가 기간 안에 두 브랜드를
  * 샀으면 두 브랜드 양쪽에 셉니다(brand_cd 별 GROUP BY).
  */
-export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
+export function partnerBuyerTypeByBrandSQL(partnerId: PartnerScope, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       brand_cd,
@@ -137,7 +138,7 @@ export function partnerBuyerTypeByBrandSQL(partnerId: string, start: Date, end: 
   `;
 }
 
-export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6, basis: SalesBasis = "tableau"): string {
+export function partnerBuyerMonthlySQL(partnerId: PartnerScope, monthsBack: number = 6, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       DATE_FORMAT(s.reg_date, '%Y-%m') AS month,
@@ -159,7 +160,7 @@ export function partnerBuyerMonthlySQL(partnerId: string, monthsBack: number = 6
 // 반품률은 매출 산식과 무관하게 전체 주문 상태를 본다(기존 그대로)
 const USERS = EXCLUDED_USER_IDS.map((v) => `'${v}'`).join(",");
 
-export function partnerReturnRateSQL(partnerId: string, start: Date, end: Date): string {
+export function partnerReturnRateSQL(partnerId: PartnerScope, start: Date, end: Date): string {
   return `
     SELECT
       COUNT(DISTINCT CASE
@@ -174,7 +175,7 @@ export function partnerReturnRateSQL(partnerId: string, start: Date, end: Date):
     FROM wt_order_product op
     JOIN wt_order_info oi ON op.ocode = oi.ocode
     JOIN wt_product p ON op.product_cd = p.product_cd
-    WHERE p.supplier = ${Number(partnerId)}
+    WHERE ${scopeProductSQL(partnerId)}
       AND oi.order_yn = 'y'
       AND (oi.user_id IS NULL OR oi.user_id NOT IN (${USERS}))
       AND op.reg_date BETWEEN '${fmt(start)}' AND '${fmt(end)}'

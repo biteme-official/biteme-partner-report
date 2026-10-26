@@ -8,14 +8,19 @@ import {
   partnerBrandsSQL,
 } from "@/lib/queries/partners";
 import { parseSalesBasis } from "@/lib/queries/salesLines";
+import { ownScopeGuard } from "@/lib/ownScopeAuth";
 import type { PartnerDetail, DailySales, HourlySales, ProductSales, BrandInfo } from "@/lib/types";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: rawId } = await params;
   const searchParams = req.nextUrl.searchParams;
+  // 0 = 바잇미 자체 + brand / notBrand (#83)
+  const guarded = ownScopeGuard(req, rawId);
+  if (guarded instanceof NextResponse) return guarded;
+  const id = guarded;
 
   const startDateParam = searchParams.get("startDate");
   const endDateParam = searchParams.get("endDate");
