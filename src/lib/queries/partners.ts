@@ -1,4 +1,5 @@
 import { salesLinesSQL, SALES_AGG_COLUMNS, type SalesBasis } from "./salesLines";
+import { isOwnScope, scopeProductSQL, type PartnerScope } from "./partnerScope";
 
 // 매출은 전부 태블로 실매출 산식(salesLines.ts)으로 낸다 — 이슈 #59
 
@@ -50,7 +51,25 @@ export function partnerListSQL(start: Date, end: Date): string {
   `;
 }
 
-export function partnerDetailSQL(partnerId: string): string {
+export function partnerDetailSQL(partnerId: PartnerScope): string {
+  // 바잇미 자체(#83) — 여러 계정을 한 곳처럼. 집계만 있어 범위에 상품이 없어도 한 줄이 나옵니다
+  if (isOwnScope(partnerId)) {
+    return `
+    SELECT
+      0 AS partner_id,
+      '바잇미 자체' AS partner_name,
+      MIN(a.reg_date) AS joined_date,
+      COUNT(DISTINCT p.product_cd) AS total_product_count,
+      COUNT(DISTINCT CASE
+        WHEN p.display_yn = 'y' AND p.del_yn = 'n' THEN p.product_cd
+      END) AS active_product_count,
+      COUNT(DISTINCT c2.code_cd2) AS brand_count
+    FROM wt_product p
+    JOIN wt_admin a ON a.\`no\` = p.supplier
+    LEFT JOIN wt_code2 c2 ON p.brand_cd = c2.code_cd2
+    WHERE ${scopeProductSQL(partnerId)}
+  `;
+  }
   return `
     SELECT
       a.\`no\` AS partner_id,
@@ -69,7 +88,7 @@ export function partnerDetailSQL(partnerId: string): string {
   `;
 }
 
-export function partnerSalesSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
+export function partnerSalesSQL(partnerId: PartnerScope, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       DATE(s.reg_date) AS sale_date,
@@ -83,7 +102,7 @@ export function partnerSalesSQL(partnerId: string, start: Date, end: Date, basis
   `;
 }
 
-export function partnerHourlySalesSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
+export function partnerHourlySalesSQL(partnerId: PartnerScope, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       HOUR(s.reg_date) AS sale_hour,
@@ -97,7 +116,7 @@ export function partnerHourlySalesSQL(partnerId: string, start: Date, end: Date,
   `;
 }
 
-export function partnerProductsSQL(partnerId: string, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
+export function partnerProductsSQL(partnerId: PartnerScope, start: Date, end: Date, basis: SalesBasis = "tableau"): string {
   return `
     SELECT
       s.product_cd,
@@ -113,7 +132,7 @@ export function partnerProductsSQL(partnerId: string, start: Date, end: Date, ba
   `;
 }
 
-export function partnerBrandsSQL(partnerId: string): string {
+export function partnerBrandsSQL(partnerId: PartnerScope): string {
   return `
     SELECT
       p.brand_cd,
@@ -124,7 +143,7 @@ export function partnerBrandsSQL(partnerId: string): string {
       END) AS active_count
     FROM wt_product p
     LEFT JOIN wt_code2 c2 ON p.brand_cd = c2.code_cd2
-    WHERE p.supplier = ${Number(partnerId)}
+    WHERE ${scopeProductSQL(partnerId)}
     GROUP BY p.brand_cd
     ORDER BY product_count DESC
   `;

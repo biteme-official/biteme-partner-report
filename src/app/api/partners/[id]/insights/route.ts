@@ -20,12 +20,17 @@ import type {
 } from "@/lib/types";
 import { toDateStr } from "@/lib/date";
 import { parseSalesBasis } from "@/lib/queries/salesLines";
+import { ownScopeGuard } from "@/lib/ownScopeAuth";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  // 0 = 바잇미 자체 + brand / notBrand (#83)
+  const guarded = ownScopeGuard(req, rawId);
+  if (guarded instanceof NextResponse) return guarded;
+  const id = guarded;
 
   const end = new Date();
   const start = new Date();
