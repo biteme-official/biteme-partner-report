@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryBatch } from "@/lib/db";
+import { query } from "@/lib/db";
 import { cached } from "@/lib/cache";
 import { CATEGORY_MAJORS } from "@/lib/categoryMajors";
-import {
-  categoryNamesSQL,
-  categoryOrderCountsSQL,
-  categoryProductSalesSQL,
-} from "@/lib/queries/categorySales";
+import { categoryNamesSQL } from "@/lib/queries/categorySales";
+import { loadCategoryPeriod } from "@/lib/categoryFold";
 
 /** 지난 기간은 바뀌지 않습니다 */
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -24,29 +21,6 @@ const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : 
 const kstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
 const days = (start: string, end: string) =>
   Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
-
-interface ProductRow {
-  product_cd: string;
-  product_nm: string | null;
-  partner_id: number | string;
-  partner_name: string | null;
-  brand_cd: string | null;
-  brand_nm: string | null;
-  major: string | null;
-  mid: string | null;
-  repre_major: string | null;
-  order_count: number | string;
-  qty: number | string;
-  sales: number | string;
-  partner_sales: number | string;
-}
-
-interface OrderRow {
-  level: "all" | "major" | "mid";
-  major: string | null;
-  mid: string | null;
-  order_count: number | string;
-}
 
 interface NameRow {
   category_cd: string;
@@ -79,37 +53,15 @@ export async function GET(req: NextRequest) {
   const ttl = end >= kstToday() ? LIVE_CACHE_TTL_MS : CACHE_TTL_MS;
 
   try {
-    const data = await cached(`category-sales:v2:${start}:${end}`, ttl, async () => {
-      const [products, orders, names] = await queryBatch<[ProductRow[], OrderRow[], NameRow[]]>([
-        categoryProductSalesSQL(range),
-        categoryOrderCountsSQL(range),
-        categoryNamesSQL(),
-      ]);
+    const data = await cached(`category-sales:v3:${start}:${end}`, ttl, async () => {
+      // 배정(6시간 캐시)·주문 라인·이름을 함께 — 접기는 lib/categoryFold.ts (#79)
+      const [{ products, orders }, names] = await Promise.all([loadCategoryPeriod(range), query<NameRow>(categoryNamesSQL())]);
       return {
         period: { start, end },
         majors: CATEGORY_MAJORS,
         categories: names.map((r) => ({ cd: String(r.category_cd), name: String(r.category_nm), pet_type: str(r.pet_type), active: num(r.active) === 1 })),
-        products: products.map((r) => ({
-          product_cd: String(r.product_cd),
-          product_nm: r.product_nm ?? "",
-          partner_id: num(r.partner_id),
-          partner_name: r.partner_name ?? "",
-          brand_cd: r.brand_cd ?? "",
-          brand_nm: r.brand_nm ?? "",
-          major: str(r.major),
-          mid: str(r.mid),
-          repre_major: str(r.repre_major),
-          order_count: num(r.order_count),
-          qty: num(r.qty),
-          sales: num(r.sales),
-          partner_sales: num(r.partner_sales),
-        })),
-        orders: orders.map((r) => ({
-          level: r.level,
-          major: str(r.major),
-          mid: str(r.mid),
-          order_count: num(r.order_count),
-        })),
+        products,
+        orders,
       };
     });
     return NextResponse.json(data);

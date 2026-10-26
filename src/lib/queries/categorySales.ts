@@ -3,7 +3,7 @@ import { salesLinesSQL } from "./salesLines";
 import { majorCodes } from "../categoryMajors";
 
 /**
- * 카테고리별 매출 — 프로모션 센터 관리자 매출통계 「카테고리 매출」 탭 (이슈 #75).
+ * 카테고리별 매출 — 프로모션 센터 관리자 매출통계 「카테고리 매출」 탭 (이슈 #75 · #77 · #79).
  *
  * 매출은 다른 화면과 같은 주문 라인(salesLines.ts)이고, 실매출(sales)·거래액(partner_sales) 둘 다 냅니다.
  * 바잇미 자체 매출은 통합 탭(integrated.ts)과 같이 뺍니다 — 프로모션 센터의 전체 거래액과 맞추려고.
@@ -18,7 +18,10 @@ import { majorCodes } from "../categoryMajors";
  *    중분류(category2_cd, 9자리)는 고른 대분류 아래 **중분류가 채워진** 연결 중 대표 줄을 먼저, 없으면 코드가 가장 작은 것.
  *    대표 줄은 category2_cd 가 빈 문자열인 경우가 많아, 빈 줄을 먼저 고르면 중분류가 거의 다 비어 버립니다.
  *
- * 상품 조건이 없으므로 안분은 salesLines 그대로입니다(배송비는 상품 줄마다 이미 나뉘어 있음).
+ * ⚡ 속도 (#79) — 배정은 기간과 무관해 `categoryAssignSQL` 로 상품 전체를 따로 한 번 계산해 오래 담아 두고,
+ *    기간 쿼리(`categoryOrderLinesSQL`)는 주문 라인을 **한 번만** 읽어 (주문 × 상품) 합계만 냅니다. 상품별 합계·
+ *    대분류별 주문 수는 `lib/categoryFold.ts` 가 그 줄들로 접습니다. 예전에는 기간마다 배정 CTE 를 다시 묶고
+ *    주문 라인 계산을 쿼리 두 개에서 되풀이해 같은 기간 통합 조회의 열 배쯤 걸렸습니다(25일 17초 · 90일 41초).
  */
 
 export interface CategorySalesRange {
@@ -29,15 +32,23 @@ export interface CategorySalesRange {
 
 const inList = (codes: string[]) => codes.map((c) => mysql.escape(c)).join(",");
 
-function withLines(r: CategorySalesRange): string {
+/** 상품 전부의 대분류·중분류 배정 — 기간과 무관합니다. 카테고리 연결이 없는 상품은 행이 없습니다(= 미지정) */
+export function categoryAssignSQL(): string {
   const all = inList(majorCodes());
   const dog = inList(majorCodes("dog"));
   const cat = inList(majorCodes("cat"));
   return `
-    WITH s AS (
-      ${salesLinesSQL({ fromStr: `${r.start} 00:00:00`, toStr: `${r.end} 23:59:59` })}
-    ),
-    pick AS (
+    SELECT
+      k.product_cd,
+      k.major,
+      k.repre_major,
+      -- 정렬 열쇠: 중분류가 있는 줄 먼저(대표 줄은 category2_cd 가 빈 경우가 많음) → 대표 줄 → 코드
+      SUBSTRING(MIN(
+        IF(pc.category1_cd = k.major AND LEFT(pc.category2_cd, 6) = k.major,
+          CONCAT(IF(pc.repre_category_yn = 'Y', '0', '1'), pc.category2_cd),
+          NULL)
+      ), 2) AS mid
+    FROM (
       SELECT
         pc.product_cd,
         COALESCE(
@@ -49,77 +60,35 @@ function withLines(r: CategorySalesRange): string {
         MAX(IF(pc.repre_category_yn = 'Y', pc.category1_cd, NULL)) AS repre_major
       FROM wt_product_category pc
       JOIN wt_product p ON p.product_cd = pc.product_cd
-      WHERE pc.product_cd IN (SELECT DISTINCT product_cd FROM s)
       GROUP BY pc.product_cd
-    ),
-    asg AS (
-      SELECT
-        k.product_cd,
-        k.major,
-        k.repre_major,
-        -- 정렬 열쇠: 중분류가 있는 줄 먼저(대표 줄은 category2_cd 가 빈 경우가 많음) → 대표 줄 → 코드
-        SUBSTRING(MIN(
-          IF(pc.category1_cd = k.major AND LEFT(pc.category2_cd, 6) = k.major,
-            CONCAT(IF(pc.repre_category_yn = 'Y', '0', '1'), pc.category2_cd),
-            NULL)
-        ), 2) AS mid
-      FROM pick k
-      JOIN wt_product_category pc ON pc.product_cd = k.product_cd
-      GROUP BY k.product_cd, k.major, k.repre_major
-    )`;
+    ) k
+    JOIN wt_product_category pc ON pc.product_cd = k.product_cd
+    GROUP BY k.product_cd, k.major, k.repre_major
+  `;
 }
 
-const FROM = `
-    FROM s
-    JOIN wt_admin a ON a.\`no\` = s.supplier
-    LEFT JOIN asg ON asg.product_cd = s.product_cd
-    WHERE a.company_nm NOT LIKE '%바잇미%'`;
-
-/** 상품 × 위탁사 × 브랜드 한 줄 — 배정한 대분류·중분류와 함께. 매출이 있던 상품만 */
-export function categoryProductSalesSQL(r: CategorySalesRange): string {
+/**
+ * 기간의 (주문 × 상품 × 위탁사 × 브랜드) 한 줄 — 금액은 반올림 전 합계. 접기는 `lib/categoryFold.ts`.
+ * 배정 조인 없이 통합 조회(integrated.ts)와 같은 모양이라 그만큼 빠릅니다.
+ */
+export function categoryOrderLinesSQL(r: CategorySalesRange): string {
   return `
-    ${withLines(r)}
     SELECT
+      s.ocode,
       s.product_cd,
       MAX(s.product_nm) AS product_nm,
       s.supplier AS partner_id,
       MAX(a.company_nm) AS partner_name,
       s.brand_cd,
       IFNULL(MAX(c2.code_nm2), s.brand_cd) AS brand_nm,
-      asg.major,
-      asg.mid,
-      asg.repre_major,
-      COUNT(DISTINCT s.ocode) AS order_count,
       SUM(s.qty) AS qty,
-      ROUND(SUM(s.sales)) AS sales,
-      ROUND(SUM(s.partner_sales)) AS partner_sales
-    FROM s
+      SUM(s.sales) AS sales,
+      SUM(s.partner_sales) AS partner_sales
+    FROM (${salesLinesSQL({ fromStr: `${r.start} 00:00:00`, toStr: `${r.end} 23:59:59` })}) s
     JOIN wt_admin a ON a.\`no\` = s.supplier
     LEFT JOIN wt_code2 c2 ON s.brand_cd = c2.code_cd2
-    LEFT JOIN asg ON asg.product_cd = s.product_cd
     WHERE a.company_nm NOT LIKE '%바잇미%'
-    GROUP BY s.product_cd, s.supplier, s.brand_cd, asg.major, asg.mid, asg.repre_major
-  `;
-}
-
-/**
- * 주문 수 — 상품별 주문 수를 더하면 한 주문에 상품이 둘인 경우를 두 번 셉니다. 그래서 주문 번호로 따로 셉니다.
- * level: all 전체 · major 대분류(NULL = 미지정) · mid 대분류 × 중분류.
- * 운영 DB 는 GROUPING() 을 못 써(ER_PROCACCESS_DENIED) WITH ROLLUP 대신 UNION ALL 로 셉니다.
- */
-export function categoryOrderCountsSQL(r: CategorySalesRange): string {
-  return `
-    ${withLines(r)}
-    SELECT 'all' AS level, NULL AS major, NULL AS mid, COUNT(DISTINCT s.ocode) AS order_count
-    ${FROM}
-    UNION ALL
-    SELECT 'major', asg.major, NULL, COUNT(DISTINCT s.ocode)
-    ${FROM}
-    GROUP BY asg.major
-    UNION ALL
-    SELECT 'mid', asg.major, asg.mid, COUNT(DISTINCT s.ocode)
-    ${FROM}
-    GROUP BY asg.major, asg.mid
+    GROUP BY s.ocode, s.product_cd, s.supplier, s.brand_cd
   `;
 }
 
@@ -131,23 +100,5 @@ export function categoryNamesSQL(): string {
     WHERE CHAR_LENGTH(category_cd) = 6
        OR (CHAR_LENGTH(category_cd) = 9 AND LEFT(category_cd, 6) IN (${inList(majorCodes())}))
     ORDER BY category_cd
-  `;
-}
-
-/**
- * 한 달(또는 기간)의 위탁사 × 브랜드 × 대분류 합계 — 프로모션 센터 「월별 카테고리 매출 흐름」(이슈 #77).
- * 상품 줄 쿼리를 그대로 감싸 더합니다 — 반올림이 상품 줄 단위로 같아서, 같은 기간을 `/api/category-sales` 로
- * 본 합계와 원 단위까지 맞습니다.
- */
-export function categoryMonthlySalesSQL(r: CategorySalesRange): string {
-  return `
-    SELECT
-      x.partner_id,
-      x.brand_cd,
-      x.major,
-      SUM(x.sales) AS sales,
-      SUM(x.partner_sales) AS partner_sales
-    FROM (${categoryProductSalesSQL(r)}) x
-    GROUP BY x.partner_id, x.brand_cd, x.major
   `;
 }

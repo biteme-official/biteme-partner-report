@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
 import { cached } from "@/lib/cache";
 import { CATEGORY_MAJORS } from "@/lib/categoryMajors";
-import { categoryMonthlySalesSQL } from "@/lib/queries/categorySales";
+import { loadCategoryPeriod } from "@/lib/categoryFold";
 
 /** 지난 달은 바뀌지 않습니다 — 프로모션 센터도 따로 오래 캐시합니다 */
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -15,19 +14,9 @@ const YM = /^\d{4}-(0[1-9]|1[0-2])$/;
 /** 주문 데이터 첫 달 — 2024-08-26 부터 있습니다 */
 const FIRST_MONTH = "2024-08";
 
-const num = (v: unknown) => Number(v) || 0;
-const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
 const kstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
 const lastDay = (ym: string) =>
   `${ym}-${String(new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate()).padStart(2, "0")}`;
-
-interface Row {
-  partner_id: number | string;
-  brand_cd: string | null;
-  major: string | null;
-  sales: number | string;
-  partner_sales: number | string;
-}
 
 /**
  * 월별 카테고리 매출 — 프로모션 센터 「카테고리 매출」 탭의 월별 흐름 (이슈 #77).
@@ -47,20 +36,18 @@ export async function GET(req: NextRequest) {
   const ttl = end >= today ? LIVE_CACHE_TTL_MS : CACHE_TTL_MS;
 
   try {
-    const data = await cached(`category-monthly:v1:${month}:${end}`, ttl, async () => {
-      const rows = await query<Row>(categoryMonthlySalesSQL({ start, end }));
-      return {
-        month,
-        period: { start, end },
-        majors: CATEGORY_MAJORS,
-        rows: rows.map((r) => ({
-          partner_id: num(r.partner_id),
-          brand_cd: r.brand_cd ?? "",
-          major: str(r.major),
-          sales: num(r.sales),
-          partner_sales: num(r.partner_sales),
-        })),
-      };
+    const data = await cached(`category-monthly:v2:${month}:${end}`, ttl, async () => {
+      // 기간 조회와 같은 접기(상품 줄 단위 반올림)를 위탁사 × 브랜드 × 대분류로 더합니다 — 같은 기간이면 원 단위까지 일치 (#79)
+      const { products } = await loadCategoryPeriod({ start, end });
+      const by = new Map<string, { partner_id: number; brand_cd: string; major: string | null; sales: number; partner_sales: number }>();
+      for (const p of products) {
+        const k = `${p.partner_id}\u0000${p.brand_cd}\u0000${p.major ?? ""}`;
+        const r = by.get(k) ?? { partner_id: p.partner_id, brand_cd: p.brand_cd, major: p.major, sales: 0, partner_sales: 0 };
+        r.sales += p.sales;
+        r.partner_sales += p.partner_sales;
+        by.set(k, r);
+      }
+      return { month, period: { start, end }, majors: CATEGORY_MAJORS, rows: [...by.values()] };
     });
     return NextResponse.json(data);
   } catch (e) {
