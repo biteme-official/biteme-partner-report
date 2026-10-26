@@ -133,3 +133,21 @@ export function categoryNamesSQL(): string {
     ORDER BY category_cd
   `;
 }
+
+/**
+ * 한 달(또는 기간)의 위탁사 × 브랜드 × 대분류 합계 — 프로모션 센터 「월별 카테고리 매출 흐름」(이슈 #77).
+ * 상품 줄 쿼리를 그대로 감싸 더합니다 — 반올림이 상품 줄 단위로 같아서, 같은 기간을 `/api/category-sales` 로
+ * 본 합계와 원 단위까지 맞습니다.
+ */
+export function categoryMonthlySalesSQL(r: CategorySalesRange): string {
+  return `
+    SELECT
+      x.partner_id,
+      x.brand_cd,
+      x.major,
+      SUM(x.sales) AS sales,
+      SUM(x.partner_sales) AS partner_sales
+    FROM (${categoryProductSalesSQL(r)}) x
+    GROUP BY x.partner_id, x.brand_cd, x.major
+  `;
+}
