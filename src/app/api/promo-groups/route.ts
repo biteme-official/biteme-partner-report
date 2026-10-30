@@ -8,6 +8,9 @@ import {
   OWN_PARTNER_ID,
   ownBrandDailySQL,
   ownBrandSalesSQL,
+  ownProductGroupsSQL,
+  ownProductSalesSQL,
+  ownProductStatsSQL,
   promoGroupBrandsSQL,
   promoGroupsSQL,
 } from "@/lib/queries/promoGroups";
@@ -46,6 +49,24 @@ interface GroupRow {
   products: number | string;
   brands: number | string;
   own_products: number | string;
+}
+
+/** 전시 × 자체 상품 (#85) */
+interface OwnProductStatRow {
+  group_cd: number;
+  product_cd: string;
+  brand_cd: string | null;
+  rate: number | string | null;
+  promo_sales: number | string;
+  promo_orders: number | string;
+  base_sales: number | string;
+}
+
+interface OwnProductSalesRow {
+  product_cd: string;
+  brand_cd: string | null;
+  sales: number | string;
+  orders: number | string;
 }
 
 interface BrandStatRow {
@@ -97,6 +118,9 @@ const brandStat = (r: BrandStatRow) => ({
  *   GET /api/promo-groups?start&end&brandCd=9000671[&own=1]
  *     그 브랜드가 올라간 모든 전시(브랜드위크 포함)와 전시마다 그 브랜드의 상품 수·할인율.
  *     own=1 이면 바잇미 자체 상품(partner_id 0), 아니면 위탁 상품
+ *   GET /api/promo-groups?start&end&ownProducts=1   (기간 92일 이하, #85)
+ *     기간 안에 **시작한** 전시 × 바잇미 자체 상품 — 할인율·전시 기간 매출·직전 같은 일수 매출(products),
+ *     그 전시 정보(groups), 기간 중 자체 상품별 매출(sales, 참여 안 한 상품 포함)
  *   GET /api/promo-groups?start&end&ownSales=1[&brandCd=…]
  *     바잇미 자체 상품 매출 — 브랜드별 합계(/api/integrated 행 모양) 또는 brandCd 를 주면 그 브랜드 일별
  *     (/api/partners/{no}/brands/{cd} 의 sales 모양). 다른 매출 API 는 자체 계정을 빼서 PB 기획전용으로 둡니다.
@@ -118,7 +142,9 @@ export async function GET(req: NextRequest) {
   }
   const days = (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000 + 1;
   const stats = params.get("stats") === "1";
-  const limit = stats ? MAX_STATS_DAYS : MAX_DAYS;
+  const ownProducts = params.get("ownProducts") === "1";
+  // 자체 상품 단위(#85)도 가격 로그·매출을 상품마다 접어 무거워 한 분기로 막습니다
+  const limit = stats || ownProducts ? MAX_STATS_DAYS : MAX_DAYS;
   if (days > limit) {
     return NextResponse.json({ error: `period must be ${limit} days or less` }, { status: 400 });
   }
@@ -131,6 +157,36 @@ export async function GET(req: NextRequest) {
   const minBrands = Math.max(1, Math.min(200, Number(params.get("minBrands")) || DEFAULT_MIN_BRANDS));
 
   try {
+    if (ownProducts) {
+      const data = await cached(`promo-groups:own-products:${start}:${end}`, ttl, async () => {
+        const [groups, products, sales] = await Promise.all([
+          query<GroupRow>(ownProductGroupsSQL(range)),
+          query<OwnProductStatRow>(ownProductStatsSQL(range)),
+          query<OwnProductSalesRow>(ownProductSalesSQL(range)),
+        ]);
+        return {
+          period: range,
+          groups: groups.map(group(minBrands)),
+          products: products.map((r) => ({
+            group_cd: Number(r.group_cd),
+            product_cd: String(r.product_cd),
+            brand_cd: String(r.brand_cd ?? ""),
+            rate: rate(r.rate),
+            promo_sales: num(r.promo_sales),
+            promo_orders: num(r.promo_orders),
+            base_sales: num(r.base_sales),
+          })),
+          sales: sales.map((r) => ({
+            product_cd: String(r.product_cd),
+            brand_cd: String(r.brand_cd ?? ""),
+            sales: num(r.sales),
+            orders: num(r.orders),
+          })),
+        };
+      });
+      return NextResponse.json(data);
+    }
+
     if (params.get("ownSales") === "1") {
       const from = new Date(`${start}T00:00:00`);
       const to = new Date(`${end}T23:59:59`);

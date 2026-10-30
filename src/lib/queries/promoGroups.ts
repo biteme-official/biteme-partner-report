@@ -219,3 +219,116 @@ export function ownBrandDailySQL(brandCd: string, start: Date, end: Date): strin
     ORDER BY sale_date
   `;
 }
+
+// ─── 바잇미 자체 상품 단위 참여·성과 (#85) ────────────────────────────────────
+// 프로모션 센터 「PB 상품 현황」 탭이 씁니다 — 상품마다 어느 기획전에 몇 번 올라갔고, 그때 매출이
+// 직전 같은 일수보다 어땠는지. 1~8월은 센터 신청 기록이 없어 전시 이력(wt_group_product)이 원천입니다.
+
+/**
+ * 자체 계정 전부 — 매출 줄을 안쪽(배송비 안분 전)에서 자체 계정으로 좁혀 가볍게 읽습니다. 안분은
+ * 계정(supplier) 단위로 나뉘어 있어(salesLines.ts 의 WINDOW) 계정으로 좁혀도 값이 같습니다.
+ */
+const OWN_SCOPE = { own: true } as const;
+
+/** 전시 시작 전 기준 매출을 보려고 매출을 앞으로 더 읽는 일수 — 전시 최대 길이(MAX_GROUP_DAYS)와 같습니다 */
+const BASELINE_PAD_DAYS = MAX_GROUP_DAYS;
+
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const shiftDays = (s: string, n: number) => {
+  const d = new Date(`${s}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return ymd(d);
+};
+
+/**
+ * 범위 안에 **시작한** 전시 × 바잇미 자체 상품 — 할인율·전시 기간 매출·직전 같은 일수 매출.
+ *
+ * 전시는 시작일 기준으로 한 범위에만 속합니다(겹침이 아니라) — 호출하는 쪽이 분기마다 나눠 불러도
+ * 같은 전시가 두 번 세어지지 않습니다. 할인율은 brandStatsSQL 과 같은 가격 로그 방식입니다.
+ *
+ * 매출은 태블로 실매출(salesLines.ts)을 상품·일자로 접은 뒤 전시마다 두 창으로 나눠 더합니다.
+ *   promo = s ~ e (양 끝 포함), base = s 직전 같은 일수
+ * 상품 조건은 안분이 끝난 바깥에서 겁니다(productDaily.ts 와 같은 이유).
+ */
+export function ownProductStatsSQL(r: PromoGroupRange): string {
+  const from = shiftDays(r.start, -BASELINE_PAD_DAYS);
+  const to = shiftDays(r.end, MAX_GROUP_DAYS);
+  return `
+    WITH pairs AS (
+      SELECT DISTINCT gp.group_cd, gp.product_cd, p.brand_cd,
+        DATE(g.s_date) AS s, DATE(g.e_date) AS e
+      FROM wt_group g
+      JOIN wt_group_product gp ON gp.group_cd = g.group_cd AND gp.use_yn = 'Y'
+      JOIN wt_product p ON p.product_cd = gp.product_cd
+      JOIN wt_admin a ON a.\`no\` = p.supplier
+      WHERE g.use_yn = 'Y'
+        AND g.s_date >= ${mysql.escape(`${r.start} 00:00:00`)} AND g.s_date <= ${mysql.escape(`${r.end} 23:59:59`)}
+        AND DATEDIFF(g.e_date, g.s_date) < ${MAX_GROUP_DAYS}
+        AND ${OWN}
+    ),
+    products AS (
+      SELECT DISTINCT product_cd FROM pairs
+    ),
+    price_log AS (
+      SELECT t.product_cd, DATE(t.mod_date) AS d, t.sale_price, t.supply_price,
+        LEAD(DATE(t.mod_date)) OVER (PARTITION BY t.product_cd ORDER BY t.mod_date, t.seq) AS nd
+      FROM products
+      JOIN wt_product_trg_log t ON t.product_cd = products.product_cd
+      WHERE t.del_yn = 'N'
+        AND t.product_state IN ('1','2','3','4')
+        AND t.sale_price > 0 AND t.supply_price > 0 AND t.sale_price <= t.supply_price
+    ),
+    product_rate AS (
+      SELECT pairs.group_cd, pairs.product_cd,
+        MAX((1 - l.sale_price / l.supply_price) * 100) AS rate
+      FROM pairs
+      JOIN price_log l ON l.product_cd = pairs.product_cd
+        AND l.d <= pairs.e AND (l.nd IS NULL OR l.nd > pairs.s)
+      GROUP BY pairs.group_cd, pairs.product_cd
+    ),
+    daily AS (
+      SELECT DATE(s.reg_date) AS d, s.product_cd,
+        SUM(s.sales) AS sales, COUNT(DISTINCT s.ocode) AS orders
+      FROM (${salesLinesSQL({ partnerId: OWN_SCOPE, fromStr: `${from} 00:00:00`, toStr: `${to} 23:59:59` })}) s
+      JOIN products ON products.product_cd = s.product_cd
+      GROUP BY DATE(s.reg_date), s.product_cd
+    )
+    SELECT
+      pairs.group_cd,
+      pairs.product_cd,
+      pairs.brand_cd,
+      ROUND(MAX(pr.rate), 1) AS rate,
+      ROUND(SUM(IF(daily.d BETWEEN pairs.s AND pairs.e, daily.sales, 0))) AS promo_sales,
+      SUM(IF(daily.d BETWEEN pairs.s AND pairs.e, daily.orders, 0)) AS promo_orders,
+      ROUND(SUM(IF(daily.d BETWEEN DATE_SUB(pairs.s, INTERVAL DATEDIFF(pairs.e, pairs.s) + 1 DAY)
+                                AND DATE_SUB(pairs.s, INTERVAL 1 DAY), daily.sales, 0))) AS base_sales
+    FROM pairs
+    LEFT JOIN product_rate pr ON pr.group_cd = pairs.group_cd AND pr.product_cd = pairs.product_cd
+    LEFT JOIN daily ON daily.product_cd = pairs.product_cd
+    GROUP BY pairs.group_cd, pairs.product_cd, pairs.brand_cd
+  `;
+}
+
+/** 범위 안 전시 정보 — ownProductStatsSQL 과 같은 조건(시작일 기준) */
+export function ownProductGroupsSQL(r: PromoGroupRange): string {
+  return `
+    SELECT ${GROUP_COLUMNS}
+    ${GROUP_FROM}
+    WHERE g.use_yn = 'Y'
+      AND g.s_date >= ${mysql.escape(`${r.start} 00:00:00`)} AND g.s_date <= ${mysql.escape(`${r.end} 23:59:59`)}
+      AND DATEDIFF(g.e_date, g.s_date) < ${MAX_GROUP_DAYS}
+    GROUP BY g.group_cd
+    HAVING own_products > 0
+    ORDER BY g.s_date, g.group_cd
+  `;
+}
+
+/** 범위 중 바잇미 자체 상품별 매출 — 기획전 참여와 무관하게 팔린 상품 전부 */
+export function ownProductSalesSQL(r: PromoGroupRange): string {
+  return `
+    SELECT s.product_cd, MAX(s.brand_cd) AS brand_cd,
+      ROUND(SUM(s.sales)) AS sales, COUNT(DISTINCT s.ocode) AS orders
+    FROM (${salesLinesSQL({ partnerId: OWN_SCOPE, fromStr: `${r.start} 00:00:00`, toStr: `${r.end} 23:59:59` })}) s
+    GROUP BY s.product_cd
+  `;
+}
