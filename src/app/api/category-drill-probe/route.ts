@@ -6,11 +6,11 @@ import { salesLinesSQL } from "@/lib/queries/salesLines";
 /**
  * 🔴 임시 조사용 — 머지 금지. 확인이 끝나면 브랜치째 지웁니다.
  * 칼럼 이름과 건수·비율만 돌려주고, 상품·주문·금액 값은 내지 않습니다. 읽기 전용입니다.
- *   GET /api/category-drill-probe?section=columns|categories|sold|price
+ *   GET /api/category-drill-probe?section=columns|categories|sold|price|orderPrice|coupon
  */
 export const maxDuration = 60;
 
-const TABLES = ["wt_order_product", "wt_product_category", "wt_category", "wt_product_trg_log"];
+const TABLES = ["wt_order_product", "wt_product_category", "wt_category", "wt_product_trg_log", "wt_group", "wt_coupon_master", "wt_coupon_member"];
 
 const ymd = (daysAgo: number) => new Date(Date.now() + 9 * 3_600_000 - daysAgo * 86_400_000).toISOString().slice(0, 10);
 
@@ -103,6 +103,80 @@ async function price() {
     ) y`);
 }
 
+/** 최근 14일 주문 줄 — 주문 라인의 정가·판매가·기획전 칸이 채워지는지, total_price 와 어떻게 맞는지 */
+async function orderPrice() {
+  const from = `${ymd(14)} 00:00:00`;
+  const to = `${ymd(1)} 23:59:59`;
+  const base = `wt_order_product op
+    WHERE op.reg_date BETWEEN '${from}' AND '${to}'
+      AND op.product_order_state_cd IN ('30','35','40','90')
+      AND op.total_price > 0 AND op.qty > 0`;
+  const fill = await query(`
+    SELECT
+      COUNT(*) AS line_count,
+      SUM(IFNULL(op.supply_price, 0) > 0) AS has_list,
+      SUM(IFNULL(op.sale_price, 0) > 0) AS has_sale,
+      SUM(IFNULL(op.price, 0) > 0) AS has_price,
+      SUM(op.sale_price > op.supply_price) AS sale_over_list,
+      SUM(op.price = op.sale_price) AS price_eq_sale,
+      SUM(op.price = op.supply_price) AS price_eq_list,
+      SUM(op.total_price = op.price * op.qty) AS total_eq_price_qty,
+      SUM(op.total_price = op.sale_price * op.qty) AS total_eq_sale_qty,
+      SUM(op.total_price = op.sale_price * op.qty + IFNULL(op.total_opt_price, 0)) AS total_eq_sale_qty_opt,
+      SUM(op.total_price = IFNULL(op.total_origin_price, 0)) AS total_eq_origin,
+      SUM(IFNULL(op.total_opt_price, 0) <> 0) AS has_opt_price,
+      SUM(IFNULL(op.total_origin_price, 0) = op.supply_price * op.qty) AS origin_eq_list_qty,
+      SUM(IFNULL(op.product_coupon_dc_price, 0) > 0) AS has_coupon_dc,
+      SUM(IFNULL(op.group_cd, 0) > 0) AS has_group,
+      SUM(IFNULL(op.event_seq, 0) > 0) AS has_event,
+      COUNT(DISTINCT NULLIF(op.group_cd, 0)) AS distinct_groups
+    FROM ${base}`);
+  const group = await query(`
+    SELECT
+      COUNT(*) AS line_count,
+      SUM(y.in_live_group > 0) AS product_in_live_group,
+      SUM(y.in_live_group > 0 AND IFNULL(y.group_cd, 0) > 0) AS live_and_has_group,
+      SUM(y.in_live_group > 0 AND y.own_group_live > 0) AS live_and_own_group_live,
+      SUM(y.in_live_group = 0 AND IFNULL(y.group_cd, 0) > 0) AS not_live_but_has_group,
+      SUM(IFNULL(y.group_cd, 0) > 0 AND y.own_group_live > 0) AS own_group_live,
+      SUM(y.in_live_group > 0 AND y.sale_price < y.supply_price) AS live_discounted,
+      SUM(y.in_live_group = 0 AND y.sale_price < y.supply_price) AS not_live_discounted,
+      SUM(y.in_live_group > 1) AS in_two_or_more_live_groups
+    FROM (
+      SELECT op.group_cd, op.sale_price, op.supply_price,
+        (SELECT COUNT(*) FROM wt_group_product gp JOIN wt_group g ON g.group_cd = gp.group_cd
+          WHERE gp.product_cd = op.product_cd AND gp.use_yn = 'Y'
+            AND op.reg_date BETWEEN g.s_date AND g.e_date) AS in_live_group,
+        (SELECT COUNT(*) FROM wt_group g
+          WHERE g.group_cd = op.group_cd AND op.reg_date BETWEEN g.s_date AND g.e_date) AS own_group_live
+      FROM ${base}
+    ) y`);
+  return { fill, group };
+}
+
+/** 최근 90일 — 주문 쿠폰이 어떤 종류로 이어지는지. 건수만 */
+async function coupon() {
+  const from = `${ymd(90)} 00:00:00`;
+  const to = `${ymd(1)} 23:59:59`;
+  return query(`
+    SELECT
+      cm.sale_target,
+      COUNT(*) AS line_count,
+      COUNT(DISTINCT cm.coupon_master_seq) AS masters,
+      SUM(IFNULL(op.product_coupon_dc_price, 0) > 0) AS has_product_dc,
+      SUM(IFNULL(op.division_coupon_product_price, 0) > 0) AS has_division_dc,
+      SUM(IFNULL(oi.coupon_member_seq, 0) > 0) AS order_has_coupon
+    FROM wt_order_product op
+    JOIN wt_order_info oi ON oi.ocode = op.ocode
+    LEFT JOIN wt_coupon_member m ON m.coupon_member_seq = oi.coupon_member_seq
+    LEFT JOIN wt_coupon_master cm ON cm.coupon_master_seq = m.coupon_master_seq
+    WHERE op.reg_date BETWEEN '${from}' AND '${to}'
+      AND op.product_order_state_cd IN ('30','35','40','90')
+      AND op.total_price > 0 AND op.qty > 0
+    GROUP BY cm.sale_target
+    ORDER BY cm.sale_target`);
+}
+
 export async function GET(req: NextRequest) {
   const section = req.nextUrl.searchParams.get("section");
   try {
@@ -110,6 +184,8 @@ export async function GET(req: NextRequest) {
     if (section === "categories") return NextResponse.json(await categories());
     if (section === "sold") return NextResponse.json(await sold());
     if (section === "price") return NextResponse.json(await price());
+    if (section === "orderPrice") return NextResponse.json(await orderPrice());
+    if (section === "coupon") return NextResponse.json(await coupon());
     return NextResponse.json({ error: "section 은 columns, categories, sold, price 중 하나" }, { status: 400 });
   } catch (e) {
     console.error("category-drill-probe", e);
