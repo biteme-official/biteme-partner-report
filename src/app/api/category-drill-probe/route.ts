@@ -177,6 +177,35 @@ async function coupon() {
     ORDER BY cm.sale_target`);
 }
 
+/** 쿠폰 마스터가 전시(wt_group)에 연결되는지 — 건수만 */
+async function couponLink() {
+  const from = `${ymd(90)} 00:00:00`;
+  const to = `${ymd(1)} 23:59:59`;
+  const groups = await query(`
+    SELECT COUNT(*) AS live_groups, SUM(IFNULL(g.coupon_master_seq, 0) > 0) AS with_coupon,
+      COUNT(DISTINCT NULLIF(g.coupon_master_seq, 0)) AS distinct_coupons
+    FROM wt_group g
+    WHERE g.use_yn = 'Y' AND g.s_date <= '${to}' AND g.e_date >= '${from}'`);
+  const lines = await query(`
+    SELECT
+      cm.sale_target,
+      COUNT(*) AS line_count,
+      COUNT(DISTINCT cm.coupon_master_seq) AS masters,
+      SUM(EXISTS (SELECT 1 FROM wt_group g WHERE g.coupon_master_seq = cm.coupon_master_seq)) AS coupon_on_group,
+      COUNT(DISTINCT IF(EXISTS (SELECT 1 FROM wt_group g WHERE g.coupon_master_seq = cm.coupon_master_seq), cm.coupon_master_seq, NULL)) AS masters_on_group,
+      SUM(IFNULL(cm.partner_coupn_yn, 'N') = 'Y') AS partner_coupon
+    FROM wt_order_product op
+    JOIN wt_order_info oi ON oi.ocode = op.ocode
+    JOIN wt_coupon_member m ON m.coupon_member_seq = oi.coupon_member_seq
+    JOIN wt_coupon_master cm ON cm.coupon_master_seq = m.coupon_master_seq
+    WHERE op.reg_date BETWEEN '${from}' AND '${to}'
+      AND op.product_order_state_cd IN ('30','35','40','90')
+      AND IFNULL(op.division_coupon_product_price, 0) > 0
+    GROUP BY cm.sale_target
+    ORDER BY cm.sale_target`);
+  return { groups, lines };
+}
+
 export async function GET(req: NextRequest) {
   const section = req.nextUrl.searchParams.get("section");
   try {
@@ -186,6 +215,7 @@ export async function GET(req: NextRequest) {
     if (section === "price") return NextResponse.json(await price());
     if (section === "orderPrice") return NextResponse.json(await orderPrice());
     if (section === "coupon") return NextResponse.json(await coupon());
+    if (section === "couponLink") return NextResponse.json(await couponLink());
     return NextResponse.json({ error: "section 은 columns, categories, sold, price 중 하나" }, { status: 400 });
   } catch (e) {
     console.error("category-drill-probe", e);
