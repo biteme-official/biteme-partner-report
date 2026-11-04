@@ -164,6 +164,9 @@ export function salesLinesSQL(f: SalesLineFilter): string {
         p.brand_cd,
         oi.user_id,
         op.total_price AS price,
+        op.supply_price AS list_unit,
+        op.sale_price AS sale_unit,
+        oi.coupon_member_seq,
         CASE
           WHEN op.coupon_use_yn = 'n' OR IFNULL(op.division_coupon_product_price, 0) < 5 THEN 0
           ELSE op.division_coupon_product_price

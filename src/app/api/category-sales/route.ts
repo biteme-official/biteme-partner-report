@@ -33,10 +33,12 @@ interface NameRow {
  * 카테고리별 매출 — 프로모션 센터 관리자 매출통계 「카테고리 매출」 탭 (이슈 #75).
  *   GET /api/category-sales?start=YYYY-MM-DD&end=YYYY-MM-DD
  *
- * products  상품 × 위탁사 × 브랜드 — 배정한 대분류(major)·중분류(mid). major 가 null 이면 미지정이고,
+ * products  상품 × 위탁사 × 브랜드 — 배정한 대분류(major)·중분류(mid)·소분류(small). major 가 null 이면 미지정이고,
  *           repre_major 는 그 상품의 대표 카테고리(대상 밖일 수 있음 — 미지정 목록에서 원인 보기용)
  *           sales = 태블로 실매출, partner_sales = 거래액(위탁사 기준)
- * orders    주문 수 — level all / major / mid (주문 번호로 따로 셈)
+ *           list_amount·sale_amount = 주문 당시 정가·판매가 × 수량 합(쿠폰 차감 전, 옵션 추가금 제외)
+ *           promo_coupon·promo_coupon_qty = 기획전에 걸린 쿠폰의 금액과 그 쿠폰이 쓰인 수량
+ * orders    주문 수 — level all / major / mid / small (주문 번호로 따로 셈)
  * majors    대상 대분류(쇼핑몰 메뉴 순서), categories 는 wt_category 이름(active = 사용 중·삭제 안 됨)
  */
 export async function GET(req: NextRequest) {
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest) {
   const ttl = end >= kstToday() ? LIVE_CACHE_TTL_MS : CACHE_TTL_MS;
 
   try {
-    const data = await cached(`category-sales:v3:${start}:${end}`, ttl, async () => {
+    const data = await cached(`category-sales:v4:${start}:${end}`, ttl, async () => {
       // 배정(6시간 캐시)·주문 라인·이름을 함께 — 접기는 lib/categoryFold.ts (#79)
       const [{ products, orders }, names] = await Promise.all([loadCategoryPeriod(range), query<NameRow>(categoryNamesSQL())]);
       return {
