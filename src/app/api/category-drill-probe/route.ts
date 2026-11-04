@@ -186,19 +186,24 @@ async function couponLink() {
       COUNT(DISTINCT NULLIF(g.coupon_master_seq, 0)) AS distinct_coupons
     FROM wt_group g
     WHERE g.use_yn = 'Y' AND g.s_date <= '${to}' AND g.e_date >= '${from}'`);
+  // 전시 쪽 쿠폰 목록을 먼저 한 번 묶어 조인합니다 — 줄마다 EXISTS 를 돌리면 60초를 넘깁니다. 범위도 14일로 줄입니다
+  const recent = `${ymd(14)} 00:00:00`;
   const lines = await query(`
     SELECT
       cm.sale_target,
       COUNT(*) AS line_count,
       COUNT(DISTINCT cm.coupon_master_seq) AS masters,
-      SUM(EXISTS (SELECT 1 FROM wt_group g WHERE g.coupon_master_seq = cm.coupon_master_seq)) AS coupon_on_group,
-      COUNT(DISTINCT IF(EXISTS (SELECT 1 FROM wt_group g WHERE g.coupon_master_seq = cm.coupon_master_seq), cm.coupon_master_seq, NULL)) AS masters_on_group,
+      SUM(gc.seq IS NOT NULL) AS coupon_on_group,
+      COUNT(DISTINCT gc.seq) AS masters_on_group,
       SUM(IFNULL(cm.partner_coupn_yn, 'N') = 'Y') AS partner_coupon
     FROM wt_order_product op
     JOIN wt_order_info oi ON oi.ocode = op.ocode
     JOIN wt_coupon_member m ON m.coupon_member_seq = oi.coupon_member_seq
     JOIN wt_coupon_master cm ON cm.coupon_master_seq = m.coupon_master_seq
-    WHERE op.reg_date BETWEEN '${from}' AND '${to}'
+    LEFT JOIN (
+      SELECT DISTINCT coupon_master_seq AS seq FROM wt_group WHERE IFNULL(coupon_master_seq, 0) > 0
+    ) gc ON gc.seq = cm.coupon_master_seq
+    WHERE op.reg_date BETWEEN '${recent}' AND '${to}'
       AND op.product_order_state_cd IN ('30','35','40','90')
       AND IFNULL(op.division_coupon_product_price, 0) > 0
     GROUP BY cm.sale_target
